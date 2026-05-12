@@ -3,65 +3,44 @@ import {createClient} from "@supabase/supabase-js";
 import { env, isDatabaseConfigured } from "./env.js";
 import { HttpError } from "../utils/http-error.js";
 
-const sqlModuleName = ["ms", "sql"].join("");
-const { default: sqlClient } = await import(sqlModuleName);
+let _adminClient = null;
+let _anonClient = null;
 
-let poolPromise = null;
-
-const connectionConfig = env.dbUseWindowsAuth
-  ? {
-      connectionString: `Server=${env.dbServer},${env.dbPort};Database=${env.dbName};Trusted_Connection=Yes;TrustServerCertificate=${env.dbTrustServerCertificate ? "Yes" : "No"};Encrypt=${env.dbEncrypt ? "Yes" : "No"};`,
-      options: {
-        trustedConnection: true,
-        encrypt: env.dbEncrypt,
-        trustServerCertificate: env.dbTrustServerCertificate,
-        enableArithAbort: true,
-      },
-      pool: {
-        max: 10,
-        min: 0,
-        idleTimeoutMillis: 30000,
-      },
-    }
-  : {
-      server: env.dbServer,
-      port: env.dbPort,
-      database: env.dbName,
-      user: env.dbUser || undefined,
-      password: env.dbPassword || undefined,
-      options: {
-        encrypt: env.dbEncrypt,
-        trustServerCertificate: env.dbTrustServerCertificate,
-        enableArithAbort: true,
-      },
-      pool: {
-        max: 10,
-        min: 0,
-        idleTimeoutMillis: 30000,
-      },
-    };
-
-export const getPool = async () => {
+/**
+ * Admin client — uses the service role key to bypass Row Level Security.
+ * Use for all server-side data operations and admin auth actions.
+ */
+export const getSupabase = () => {
   if (!isDatabaseConfigured()) {
     throw new HttpError(
       503,
-      "Database configuration is missing. Update car-api/.env with the SQL Server settings or enable DB_USE_WINDOWS_AUTH=true.",
+      "Database configuration is missing. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to car-api/.env",
     );
   }
 
-  if (!poolPromise) {
-    poolPromise = new sqlClient.ConnectionPool(connectionConfig)
-      .connect()
-      .catch((error) => {
-        poolPromise = null;
-        throw new HttpError(
-          503,
-          `Database connection failed: ${error.message}`,
-        );
-      });
+  if (!_adminClient) {
+    _adminClient = createClient(env.supabaseUrl, env.supabaseServiceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
   }
 
-  return poolPromise;
+  return _adminClient;
+};
+
+/**
+ * Anon client — uses the public anon key.
+ * Required for signInWithPassword (must use the anon key, not the service role).
+ */
+export const getAnonSupabase = () => {
+  if (!_anonClient) {
+    _anonClient = createClient(
+      env.supabaseUrl || "http://localhost",
+      env.supabaseAnonKey || "anon",
+      { auth: { autoRefreshToken: false, persistSession: false } },
+    );
+  }
+
+  return _anonClient;
 };
 
 export const executeQuery = async (queryBuilder) => {
@@ -75,23 +54,21 @@ export const getDatabaseHealth = async () => {
     return {
       configured: false,
       connected: false,
-      message: "Database environment variables are not configured.",
+      message: "Supabase environment variables are not configured.",
     };
   }
 
-  try {
-    const pool = await getPool();
-    await pool.request().query("SELECT 1 AS healthy");
+   try {
+    const db = getSupabase();
+    const { error } = await db
+      .from("brand_table")
+      .select("brand_id")
+      .limit(1);
 
-    return {
-      configured: true,
-      connected: true,
-    };
+    if (error) throw error;
+
+    return { configured: true, connected: true };
   } catch (error) {
-    return {
-      configured: true,
-      connected: false,
-      message: error.message,
-    };
+    return { configured: true, connected: false, message: error.message };
   }
 };
