@@ -22,34 +22,19 @@ export const env = {
     "http://localhost:5173",
     "http://127.0.0.1:5173",
   ]),
-  dbServer: process.env.DB_SERVER || "",
-  dbPort: Number(process.env.DB_PORT || 1433),
-  dbName: process.env.DB_NAME || "",
-  dbUser: process.env.DB_USER || "",
-  dbPassword: process.env.DB_PASSWORD || "",
-  dbUseWindowsAuth: process.env.DB_USE_WINDOWS_AUTH === "true",
-  dbEncrypt: process.env.DB_ENCRYPT !== "false",
-  dbTrustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === "true",
-  jwtSecret: process.env.JWT_SECRET || "replace-me-before-production",
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || "2h",
-  rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 900000),
-  rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 100),
-  allowDevSocialLogin: process.env.ALLOW_DEV_SOCIAL_LOGIN === "true",
+  
   supabaseUrl: process.env.SUPABASE_URL || "",
+  supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   supabaseSchema: process.env.SUPABASE_SCHEMA || "public",
   supabaseAcquiredTable: process.env.SUPABASE_ACQUIRED_TABLE || "BrandTable",
+  rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 900000),
+  rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 100),
+  allowDevSocialLogin: process.env.ALLOW_DEV_SOCIAL_LOGIN === "true",
 };
 
 export const isProduction = env.nodeEnv === "production";
 
 export const isDatabaseConfigured = () => {
-  if (env.dbUseWindowsAuth) {
-    return Boolean(env.dbServer && env.dbName);
-  }
-
-  return Boolean(env.dbServer && env.dbName && env.dbUser && env.dbPassword);
+  return Boolean(env.supabaseUrl && env.supabaseServiceRoleKey);
 };
-
-export const isSupabaseConfigured = () =>
-  Boolean(env.supabaseUrl && env.supabaseServiceRoleKey);
