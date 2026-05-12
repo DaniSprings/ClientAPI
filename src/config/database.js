@@ -1,3 +1,5 @@
+import { env } from "./env.js";
+import {createClient} from "@supabase/supabase-js";
 import { env, isDatabaseConfigured } from "./env.js";
 import { HttpError } from "../utils/http-error.js";
 
