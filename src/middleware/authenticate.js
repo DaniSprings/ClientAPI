@@ -1,5 +1,4 @@
-import jwt from "jsonwebtoken";
-import { env } from "../config/env.js";
+import { getSupabase } from "../config/database.js";
 import { HttpError } from "../utils/http-error.js";
 
 export const authenticate = (req, res, next) => {
@@ -13,18 +12,26 @@ export const authenticate = (req, res, next) => {
     return;
   }
 
-  try {
-    req.user = jwt.verify(token, env.jwtSecret);
-    next();
-  } catch (error) {
-    next(new HttpError(401, "Invalid or expired authentication token."));
-  }
+  const db = getSupabase();
+  db.auth
+    .getUser(token)
+    .then(({ data: { user }, error }) => {
+      if (error || !user) {
+        next(new HttpError(401, "Invalid or expired authentication token."));
+        return;
+      }
+      req.user = user; // Supabase user: { id (UUID), email, ... }
+      next();
+    })
+    .catch(() => {
+      next(new HttpError(401, "Invalid or expired authentication token."));
+    });
 };
 
 export const authorizeUserParam =
   (paramName = "userId") =>
   (req, res, next) => {
-    if (Number(req.params[paramName]) !== Number(req.user.userId)) {
+    if (req.params[paramName] !== req.user.id) {
       next(new HttpError(403, "You do not have access to this resource."));
       return;
     }
