@@ -1,118 +1,130 @@
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
+import { getSupabase, getAnonSupabase } from "../config/database.js";
 import { userRepository } from "../repositories/user.repository.js";
 import { HttpError } from "../utils/http-error.js";
 
-const saltRounds = 12;
-
-const createToken = (user) => {
-  return jwt.sign(
-    {
-      userId: user.userId,
-      email: user.email,
-    },
-    env.jwtSecret,
-    { expiresIn: env.jwtExpiresIn },
-  );
-};
-
-const toAuthPayload = (user) => {
-  const token = createToken(user);
-
-  return {
-    token,
-    userId: user.userId,
-    username: user.email,
-    email: user.email,
-    name: user.name,
-    surname: user.surname,
-    occupation: user.occupation,
-  };
-};
-
 const splitName = (fullName) => {
-  const [name, ...surnameParts] = String(fullName || "User")
-    .trim()
-    .split(" ");
-  return {
-    name: name || "User",
-    surname: surnameParts.join(" ") || "Account",
-  };
+  const [name, ...surnameParts] = String(fullName || "User").trim().split(" ");
+  return { name: name || "User", surname: surnameParts.join(" ") || "Account" };
 };
+
+const buildPayload = (session, user, profile) => ({
+  token: session.access_token,
+  userId: user.id,
+  username: user.email,
+  email: user.email,
+  name: profile?.name || "",
+  surname: profile?.surname || "",
+  occupation: profile?.occupation || "",
+});
 
 export const authService = {
   async signUp(payload) {
-    const existingUser = await userRepository.findByEmail(payload.email);
+    const db = getSupabase();
 
-    if (existingUser) {
-      throw new HttpError(409, "An account with this email already exists.");
+    // Create auth user — email_confirm:true skips the verification email
+    const { data: { user }, error } = await db.auth.admin.createUser({
+      email: payload.email,
+      password: payload.password,
+      email_confirm: true,
+    });
+
+    if (error) {
+      const msg = error.message?.toLowerCase() || "";
+      if (msg.includes("already") || error.code === "23505") {
+        throw new HttpError(409, "An account with this email already exists.");
+      }
+      throw new HttpError(500, error.message);
     }
 
-    const passwordHash = await bcrypt.hash(payload.password, saltRounds);
-    const user = await userRepository.createLocalUser({
+    await userRepository.createProfile({
+      userId: user.id,
       name: payload.name,
       surname: payload.surname,
       dateOfBirth: payload.dateOfBirth,
       occupation: payload.occupation,
-      email: payload.email,
-      passwordHash,
     });
 
-    return toAuthPayload(user);
+    // Sign in to obtain a session token for the response
+    const anon = getAnonSupabase();
+    const { data: signInData, error: signInError } =
+      await anon.auth.signInWithPassword({
+        email: payload.email,
+        password: payload.password,
+      });
+
+    if (signInError || !signInData.session) {
+      throw new HttpError(
+        500,
+        "Account created but login failed. Please log in manually.",
+      );
+    }
+
+    return buildPayload(signInData.session, signInData.user, {
+      name: payload.name,
+      surname: payload.surname,
+      occupation: payload.occupation,
+    });
   },
 
   async login(email, password) {
-    const user = await userRepository.findByEmail(email);
+    const anon = getAnonSupabase();
+    const { data, error } = await anon.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    if (!user || !user.passwordHash) {
+    if (error || !data.session) {
       throw new HttpError(401, "Invalid email or password.");
     }
 
-    const isValid = await bcrypt.compare(password, user.passwordHash);
-
-    if (!isValid) {
-      throw new HttpError(401, "Invalid email or password.");
-    }
-
-    return toAuthPayload(user);
+    const profile = await userRepository.getProfile(data.user.id);
+    return buildPayload(data.session, data.user, profile);
   },
 
   async socialLogin({ provider, providerId, email, fullName }) {
-    let user = await userRepository.findByProvider(provider, providerId);
+    const db = getSupabase();
+    const anon = getAnonSupabase();
+    // Deterministic dev password — not a real credential, dev-only flow
+    const tempPassword = `__dev_${provider}_${Buffer.from(providerId).toString("base64").slice(0, 16)}__`;
 
-    if (!user && email) {
-      user = await userRepository.findByEmail(email);
+    // Try signing in first (user may already exist from a previous dev login)
+    const { data: existingSession, error: signInErr } =
+      await anon.auth.signInWithPassword({ email, password: tempPassword });
 
-      if (user) {
-        await userRepository.linkSocialProvider(
-          user.userId,
-          provider,
-          providerId,
-        );
-        user = await userRepository.findById(user.userId);
-      }
+    if (!signInErr && existingSession?.session) {
+      const profile = await userRepository.getProfile(existingSession.user.id);
+      return buildPayload(existingSession.session, existingSession.user, profile);
     }
 
-    if (!user) {
-      const nameParts = splitName(fullName);
-      user = await userRepository.createSocialUser({
-        name: nameParts.name,
-        surname: nameParts.surname,
+    // Create user
+    const { name, surname } = splitName(fullName);
+    const { data: { user }, error: createError } =
+      await db.auth.admin.createUser({
         email,
-        provider,
-        externalAuthId: providerId,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: { provider, provider_id: providerId },
       });
-    }
 
-    return toAuthPayload(user);
+    if (createError) throw new HttpError(500, createError.message);
+
+    await userRepository.createProfile({ userId: user.id, name, surname });
+
+    const { data, error } = await anon.auth.signInWithPassword({
+      email,
+      password: tempPassword,
+    });
+    if (error) throw new HttpError(500, "Social login session could not be created.");
+
+    return buildPayload(data.session, data.user, { name, surname, occupation: null });
   },
 
   async createDevSocialLogin(provider) {
     if (!env.allowDevSocialLogin) {
       throw new HttpError(
         501,
-        "Social popup login is disabled. Configure a real OAuth provider or set ALLOW_DEV_SOCIAL_LOGIN=true for local development.",
+        "Social popup login is disabled. Set ALLOW_DEV_SOCIAL_LOGIN=true for local development.",
       );
     }
 
@@ -125,57 +137,68 @@ export const authService = {
   },
 
   async getCurrentUser(userId) {
-    const user = await userRepository.findById(userId);
+    const db = getSupabase();
+    const { data: { user }, error } = await db.auth.admin.getUserById(userId);
 
-    if (!user) {
-      throw new HttpError(404, "User not found.");
-    }
+    if (error || !user) throw new HttpError(404, "User not found.");
 
+    const profile = await userRepository.getProfile(userId);
     return {
-      userId: user.userId,
+      userId: user.id,
       email: user.email,
       username: user.email,
-      name: user.name,
-      surname: user.surname,
-      occupation: user.occupation,
-      dateOfBirth: user.dateOfBirth,
-      authProvider: user.authProvider,
+      name: profile?.name || "",
+      surname: profile?.surname || "",
+      occupation: profile?.occupation || "",
+      dateOfBirth: profile?.dateOfBirth || null,
+      authProvider: user.app_metadata?.provider || "email",
     };
   },
 
   async updateProfile(userId, updates) {
-    const updatedUser = await userRepository.updateUserProfile(userId, updates);
+    const db = getSupabase();
 
-    if (!updatedUser) {
-      throw new HttpError(404, "User not found.");
+    if (updates.email) {
+      const { error } = await db.auth.admin.updateUserById(userId, {
+        email: updates.email,
+      });
+      if (error) throw new HttpError(500, error.message);
     }
 
+    const updatedProfile = await userRepository.updateProfile(userId, updates);
+    if (!updatedProfile) throw new HttpError(404, "User not found.");
+
+    const { data: { user } } = await db.auth.admin.getUserById(userId);
     return {
-      userId: updatedUser.userId,
-      email: updatedUser.email,
-      username: updatedUser.email,
-      name: updatedUser.name,
-      surname: updatedUser.surname,
-      occupation: updatedUser.occupation,
-      dateOfBirth: updatedUser.dateOfBirth,
+      userId,
+      email: user?.email || updates.email,
+      username: user?.email || updates.email,
+      name: updatedProfile.name,
+      surname: updatedProfile.surname,
+      occupation: updatedProfile.occupation,
+      dateOfBirth: updatedProfile.dateOfBirth,
     };
   },
 
   async changePassword(userId, oldPassword, newPassword) {
-    const user = await userRepository.findById(userId);
+    const db = getSupabase();
+    const anon = getAnonSupabase();
 
-    if (!user || !user.passwordHash) {
-      throw new HttpError(404, "Local account not found for this user.");
-    }
+    const { data: { user }, error: getUserError } =
+      await db.auth.admin.getUserById(userId);
+    if (getUserError || !user) throw new HttpError(404, "User not found.");
 
-    const isValid = await bcrypt.compare(oldPassword, user.passwordHash);
+    // Verify old password by attempting sign-in
+    const { error: verifyError } = await anon.auth.signInWithPassword({
+      email: user.email,
+      password: oldPassword,
+    });
+    if (verifyError) throw new HttpError(401, "Current password is incorrect.");
 
-    if (!isValid) {
-      throw new HttpError(401, "Current password is incorrect.");
-    }
-
-    const passwordHash = await bcrypt.hash(newPassword, saltRounds);
-    await userRepository.updatePassword(userId, passwordHash);
+    const { error: updateError } = await db.auth.admin.updateUserById(userId, {
+      password: newPassword,
+    });
+    if (updateError) throw new HttpError(500, updateError.message);
   },
 
   async trackSearch(userId, searchTerm, filter) {
@@ -187,18 +210,13 @@ export const authService = {
   },
 
   async getUserSearches(userId, limit, offset) {
-    const searches = await userRepository.getSearchHistory(
-      userId,
-      limit,
-      offset,
-    );
-
-    return searches.map((entry) => ({
-      searchId: entry.SearchId,
-      userId: entry.UserId,
-      searchTerm: entry.SearchTerm,
-      filter: entry.FilterJson ? JSON.parse(entry.FilterJson) : null,
-      createdAt: entry.CreatedAt,
+    const rows = await userRepository.getSearchHistory(userId, limit, offset);
+    return rows.map((row) => ({
+      searchId: row.search_id,
+      userId: row.user_id,
+      searchTerm: row.search_term,
+      filter: row.filter_json ? JSON.parse(row.filter_json) : null,
+      createdAt: row.created_at,
     }));
   },
 
