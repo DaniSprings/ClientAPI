@@ -3,7 +3,7 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { authenticate, authorizeUserParam } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
-import { env, isProduction } from "../config/env.js";
+import { isProduction } from "../config/env.js";
 import { authService } from "../services/auth.service.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { HttpError } from "../utils/http-error.js";
@@ -58,14 +58,16 @@ const profileSchema = z.object({
   email: z.string().trim().email().optional(),
 });
 
+const userIdSchema = z.string().uuid();
+
 const changePasswordSchema = z.object({
-  userId: z.coerce.number().int().positive(),
+  userId: userIdSchema,
   oldPassword: z.string().min(8).max(128),
   newPassword: z.string().min(8).max(128),
 });
 
 const trackSearchSchema = z.object({
-  userId: z.coerce.number().int().positive(),
+  userId: userIdSchema,
   searchTerm: z.string().trim().min(1).max(200),
   filter: z.any().optional(),
 });
@@ -128,7 +130,7 @@ authRouter.get(
   "/me",
   authenticate,
   asyncHandler(async (req, res) => {
-    res.json(await authService.getCurrentUser(req.user.userId));
+    res.json(await authService.getCurrentUser(req.user.id));
   }),
 );
 
@@ -138,7 +140,7 @@ authRouter.put(
   authorizeUserParam(),
   validate(profileSchema),
   asyncHandler(async (req, res) => {
-    res.json(await authService.updateProfile(Number(req.params.userId), req.body));
+    res.json(await authService.updateProfile(req.params.userId, req.body));
   }),
 );
 
@@ -147,7 +149,7 @@ authRouter.post(
   authenticate,
   validate(changePasswordSchema),
   asyncHandler(async (req, res) => {
-    if (Number(req.body.userId) !== Number(req.user.userId)) {
+    if (req.body.userId !== req.user.id) {
       throw new HttpError(403, "You can only change your own password.");
     }
 
@@ -166,7 +168,7 @@ authRouter.post(
   authenticate,
   validate(trackSearchSchema),
   asyncHandler(async (req, res) => {
-    if (Number(req.body.userId) !== Number(req.user.userId)) {
+    if (req.body.userId !== req.user.id) {
       throw new HttpError(403, "You can only track searches for your own account.");
     }
 
@@ -177,7 +179,7 @@ authRouter.post(
     );
 
     res.status(201).json({
-      searchId: entry.SearchId,
+      searchId: entry.search_id,
       message: "Search saved.",
     });
   }),
@@ -190,7 +192,7 @@ authRouter.get(
   asyncHandler(async (req, res) => {
     const limit = Math.min(Number(req.query.limit || 20), 100);
     const offset = Math.max(Number(req.query.offset || 0), 0);
-    res.json(await authService.getUserSearches(Number(req.params.userId), limit, offset));
+    res.json(await authService.getUserSearches(req.params.userId, limit, offset));
   }),
 );
 
@@ -199,7 +201,7 @@ authRouter.delete(
   authenticate,
   authorizeUserParam(),
   asyncHandler(async (req, res) => {
-    const deletedCount = await authService.clearUserSearches(Number(req.params.userId));
+    const deletedCount = await authService.clearUserSearches(req.params.userId);
     res.json({ deletedCount });
   }),
 );

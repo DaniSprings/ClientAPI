@@ -12,7 +12,6 @@ const searchSchema = z.object({
   brand: z.string().trim().min(1).optional(),
   model: z.string().trim().min(1).optional(),
   year: z.string().trim().min(1).optional(),
-  limit: z.coerce.number().int().min(1).max(500).optional(),
 });
 
 router.get("/brands", asyncHandler(carsController.getBrands));
@@ -63,18 +62,6 @@ router.get(
   "/all",
   validate(searchSchema, "query"),
   asyncHandler(carsController.getAllVehicles),
-);
-
-router.get(
-  "/acquired",
-  validate(searchSchema, "query"),
-  asyncHandler(carsController.getAcquiredData),
-);
-
-router.get(
-  "/supabase/table/:tableName",
-  validate(searchSchema, "query"),
-  asyncHandler(carsController.getSupabaseTableData),
 );
 
 export default router;

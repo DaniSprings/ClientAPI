@@ -1,221 +1,137 @@
-import { executeQuery } from "../config/database.js";
+import { getSupabase } from "../config/database.js";
+import { HttpError } from "../utils/http-error.js";
 
-const mapUserRecord = (row) => ({
-  userId: row.UserId,
-  name: row.Name,
-  surname: row.Surname,
-  dateOfBirth: row.DateOfBirth,
-  occupation: row.Occupation,
-  email: row.Email,
-  passwordHash: row.PasswordHash,
-  authProvider: row.AuthProvider,
-  externalAuthId: row.ExternalAuthId,
-  createdAt: row.CreatedAt,
-  updatedAt: row.UpdatedAt,
-});
+const throwOnError = (error) => {
+  if (error) {
+    throw new HttpError(503, error.message);
+  }
+};
+
+const mapProfile = (row) => {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    userId: row.user_id,
+    name: row.name,
+    surname: row.surname,
+    dateOfBirth: row.date_of_birth,
+    occupation: row.occupation,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+};
+
+const parseFilter = (filterJson) => {
+  if (!filterJson) {
+    return null;
+  }
+
+  if (typeof filterJson === "string") {
+    return JSON.parse(filterJson);
+  }
+
+  return filterJson;
+};
 
 export const userRepository = {
-  async findByEmail(email) {
-    const result = await executeQuery((request, sql) =>
-      request.input("email", sql.NVarChar(255), email).query(`
-          SELECT TOP (1) *
-          FROM UserAccount
-          WHERE Email = @email;
-        `),
-    );
+  async createProfile({ userId, name, surname, dateOfBirth, occupation }) {
+    const db = getSupabase();
+    const { data, error } = await db
+      .from("user_profile")
+      .upsert(
+        {
+          user_id: userId,
+          name,
+          surname,
+          date_of_birth: dateOfBirth || null,
+          occupation: occupation || null,
+        },
+        { onConflict: "user_id" },
+      )
+      .select("user_id, name, surname, date_of_birth, occupation, created_at, updated_at")
+      .single();
 
-    return result.recordset[0] ? mapUserRecord(result.recordset[0]) : null;
+    throwOnError(error);
+    return mapProfile(data);
   },
 
-  async findByProvider(provider, externalAuthId) {
-    const result = await executeQuery((request, sql) =>
-      request
-        .input("provider", sql.NVarChar(50), provider)
-        .input("externalAuthId", sql.NVarChar(255), externalAuthId).query(`
-          SELECT TOP (1) *
-          FROM UserAccount
-          WHERE AuthProvider = @provider
-            AND ExternalAuthId = @externalAuthId;
-        `),
-    );
+  async getProfile(userId) {
+    const db = getSupabase();
+    const { data, error } = await db
+      .from("user_profile")
+      .select("user_id, name, surname, date_of_birth, occupation, created_at, updated_at")
+      .eq("user_id", userId)
+      .maybeSingle();
 
-    return result.recordset[0] ? mapUserRecord(result.recordset[0]) : null;
+    throwOnError(error);
+    return mapProfile(data);
   },
 
-  async findById(userId) {
-    const result = await executeQuery((request, sql) =>
-      request.input("userId", sql.Int, userId).query(`
-          SELECT TOP (1) *
-          FROM UserAccount
-          WHERE UserId = @userId;
-        `),
-    );
+  async updateProfile(userId, updates) {
+    const db = getSupabase();
+    const payload = {};
 
-    return result.recordset[0] ? mapUserRecord(result.recordset[0]) : null;
-  },
+    if (updates.name !== undefined) payload.name = updates.name;
+    if (updates.surname !== undefined) payload.surname = updates.surname;
+    if (updates.occupation !== undefined) payload.occupation = updates.occupation;
+    if (updates.dateOfBirth !== undefined) payload.date_of_birth = updates.dateOfBirth;
 
-  async createLocalUser({
-    name,
-    surname,
-    dateOfBirth,
-    occupation,
-    email,
-    passwordHash,
-  }) {
-    const result = await executeQuery((request, sql) =>
-      request
-        .input("name", sql.NVarChar(100), name)
-        .input("surname", sql.NVarChar(100), surname)
-        .input("dateOfBirth", sql.Date, dateOfBirth || null)
-        .input("occupation", sql.NVarChar(150), occupation || null)
-        .input("email", sql.NVarChar(255), email)
-        .input("passwordHash", sql.NVarChar(255), passwordHash).query(`
-          INSERT INTO UserAccount (
-            Name,
-            Surname,
-            DateOfBirth,
-            Occupation,
-            Email,
-            PasswordHash,
-            AuthProvider
-          )
-          OUTPUT INSERTED.*
-          VALUES (
-            @name,
-            @surname,
-            @dateOfBirth,
-            @occupation,
-            @email,
-            @passwordHash,
-            'local'
-          );
-        `),
-    );
+    if (Object.keys(payload).length === 0) {
+      return this.getProfile(userId);
+    }
 
-    return mapUserRecord(result.recordset[0]);
-  },
+    const { data, error } = await db
+      .from("user_profile")
+      .update(payload)
+      .eq("user_id", userId)
+      .select("user_id, name, surname, date_of_birth, occupation, created_at, updated_at")
+      .maybeSingle();
 
-  async createSocialUser({ name, surname, email, provider, externalAuthId }) {
-    const result = await executeQuery((request, sql) =>
-      request
-        .input("name", sql.NVarChar(100), name)
-        .input("surname", sql.NVarChar(100), surname)
-        .input("email", sql.NVarChar(255), email)
-        .input("provider", sql.NVarChar(50), provider)
-        .input("externalAuthId", sql.NVarChar(255), externalAuthId).query(`
-          INSERT INTO UserAccount (
-            Name,
-            Surname,
-            Email,
-            AuthProvider,
-            ExternalAuthId
-          )
-          OUTPUT INSERTED.*
-          VALUES (
-            @name,
-            @surname,
-            @email,
-            @provider,
-            @externalAuthId
-          );
-        `),
-    );
-
-    return mapUserRecord(result.recordset[0]);
-  },
-
-  async linkSocialProvider(userId, provider, externalAuthId) {
-    await executeQuery((request, sql) =>
-      request
-        .input("userId", sql.Int, userId)
-        .input("provider", sql.NVarChar(50), provider)
-        .input("externalAuthId", sql.NVarChar(255), externalAuthId).query(`
-          UPDATE UserAccount
-          SET AuthProvider = @provider,
-              ExternalAuthId = @externalAuthId,
-              UpdatedAt = SYSDATETIMEOFFSET()
-          WHERE UserId = @userId;
-        `),
-    );
-  },
-
-  async updateUserProfile(userId, updates) {
-    const result = await executeQuery((request, sql) =>
-      request
-        .input("userId", sql.Int, userId)
-        .input("name", sql.NVarChar(100), updates.name || null)
-        .input("surname", sql.NVarChar(100), updates.surname || null)
-        .input("occupation", sql.NVarChar(150), updates.occupation || null)
-        .input("email", sql.NVarChar(255), updates.email || null).query(`
-          UPDATE UserAccount
-          SET Name = COALESCE(@name, Name),
-              Surname = COALESCE(@surname, Surname),
-              Occupation = COALESCE(@occupation, Occupation),
-              Email = COALESCE(@email, Email),
-              UpdatedAt = SYSDATETIMEOFFSET()
-          OUTPUT INSERTED.*
-          WHERE UserId = @userId;
-        `),
-    );
-
-    return result.recordset[0] ? mapUserRecord(result.recordset[0]) : null;
-  },
-
-  async updatePassword(userId, passwordHash) {
-    await executeQuery((request, sql) =>
-      request
-        .input("userId", sql.Int, userId)
-        .input("passwordHash", sql.NVarChar(255), passwordHash).query(`
-          UPDATE UserAccount
-          SET PasswordHash = @passwordHash,
-              UpdatedAt = SYSDATETIMEOFFSET()
-          WHERE UserId = @userId;
-        `),
-    );
+    throwOnError(error);
+    return mapProfile(data);
   },
 
   async addSearchHistory(userId, searchTerm, filterJson) {
-    const result = await executeQuery((request, sql) =>
-      request
-        .input("userId", sql.Int, userId)
-        .input("searchTerm", sql.NVarChar(200), searchTerm)
-        .input("filterJson", sql.NVarChar(sql.MAX), filterJson || null).query(`
-          INSERT INTO UserSearchHistory (UserId, SearchTerm, FilterJson)
-          OUTPUT INSERTED.*
-          VALUES (@userId, @searchTerm, @filterJson);
-        `),
-    );
+    const db = getSupabase();
+    const { data, error } = await db
+      .from("user_search_history")
+      .insert({
+        user_id: userId,
+        search_term: searchTerm,
+        filter_json: parseFilter(filterJson),
+      })
+      .select("search_id, user_id, search_term, filter_json, created_at")
+      .single();
 
-    return result.recordset[0];
+    throwOnError(error);
+    return data;
   },
 
   async getSearchHistory(userId, limit = 20, offset = 0) {
-    const result = await executeQuery((request, sql) =>
-      request
-        .input("userId", sql.Int, userId)
-        .input("limit", sql.Int, limit)
-        .input("offset", sql.Int, offset).query(`
-          SELECT SearchId, UserId, SearchTerm, FilterJson, CreatedAt
-          FROM UserSearchHistory
-          WHERE UserId = @userId
-          ORDER BY CreatedAt DESC
-          OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
-        `),
-    );
+    const db = getSupabase();
+    const end = offset + limit - 1;
+    const { data, error } = await db
+      .from("user_search_history")
+      .select("search_id, user_id, search_term, filter_json, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .range(offset, end);
 
-    return result.recordset;
+    throwOnError(error);
+    return data;
   },
 
   async clearSearchHistory(userId) {
-    const result = await executeQuery((request, sql) =>
-      request.input("userId", sql.Int, userId).query(`
-          DELETE FROM UserSearchHistory
-          WHERE UserId = @userId;
+    const db = getSupabase();
+    const { data, error } = await db
+      .from("user_search_history")
+      .delete()
+      .eq("user_id", userId)
+      .select("search_id");
 
-          SELECT @@ROWCOUNT AS deletedCount;
-        `),
-    );
-
-    return result.recordset[0]?.deletedCount || 0;
+    throwOnError(error);
+    return data.length;
   },
 };
