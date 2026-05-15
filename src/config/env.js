@@ -35,6 +35,6 @@ export const env = {
 
 export const isProduction = env.nodeEnv === "production";
 
-export const isSupabaseConfigured = () => {
+export const isDatabaseConfigured = () => {
   return Boolean(env.supabaseUrl && env.supabaseServiceRoleKey);
 };

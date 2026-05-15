@@ -1,12 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
-import {isSupabaseConfigured } from "./env.js";
+import {isDatabaseConfigured } from "./env.js";
 import { env } from "./env.js";
 import { HttpError } from "../utils/http-error.js";
 
 let supabaseClient = null;
 
 export const getSupabaseClient = () => {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     throw new HttpError(
       503,
       "Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in car-api/.env.",
@@ -29,7 +29,7 @@ export const getSupabaseClient = () => {
 };
 
 export const getSupabaseHealth = async () => {
-  if (!isSupabaseConfigured()) {
+  if (!isDatabaseConfigured()) {
     return {
       configured: false,
       connected: false,
