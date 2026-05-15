@@ -15,7 +15,20 @@ export const validate =
       return;
     }
 
+    if (property === "query") {
+      if (req.query && typeof req.query === "object") {
+        Object.keys(req.query).forEach((key) => {
+          delete req.query[key];
+        });
+
+        Object.assign(req.query, result.data);
+      }
+
+      req.validatedQuery = result.data;
+      next();
+      return;
+    }
+
     req[property] = result.data;
     next();
   };
-  

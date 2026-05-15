@@ -1,4 +1,5 @@
 import { vehicleService } from "../services/vehicle.service.js";
+import { supabaseService } from "../services/supabase.service.js";
 import { HttpError } from "../utils/http-error.js";
 
 export const carsController = {
@@ -55,6 +56,19 @@ export const carsController = {
         model: req.query.model,
         limit: 25,
       }),
+    );
+  },
+
+  async getAcquiredData(req, res) {
+    res.json(await supabaseService.getAcquiredData(req.query.limit));
+  },
+
+  async getSupabaseTableData(req, res) {
+    res.json(
+      await supabaseService.getTableData(
+        req.params.tableName,
+        req.query.limit,
+      ),
     );
   },
 };

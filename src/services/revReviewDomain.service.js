@@ -656,7 +656,7 @@ export const revReviewDomainService = {
             "ModelTable",
             "PriceTable",
             "EnginePerformanceTable",
-            "VehicleDimensionsTable2",
+            "VehicleDimensionsTable",
           ],
         },
         sessions: {
