@@ -10,11 +10,13 @@ import { errorHandler } from "./middleware/error-handler.js";
 import { notFoundHandler } from "./middleware/not-found.js";
 import { HttpError } from "./utils/http-error.js";
 import { authRouter, legacyAuthRouter } from "./routes/auth.routes.js";
-import carsRouter from "./routes/cars.routes.js";
+//import carsRouter from "./routes/cars.routes.js";
 import healthRouter from "./routes/health.routes.js";
 import modelsRouter from "./routes/models.routes.js";
 import socialRouter from "./routes/social.routes.js";
 import domainRouter from "./routes/domain.routes.js";
+//*import carsRouter from "./routes/cars.routes.js"; (line 13)
+//*& app.use("/api/cars", carsRouter); (line 73)
 
 export const createApp = () => {
   const app = express();
@@ -70,7 +72,7 @@ export const createApp = () => {
 
   app.use("/health", healthRouter);
   app.use("/api/models", modelsRouter);
-  app.use("/api/cars", carsRouter);
+  //app.use("/api/cars", carsRouter);
   app.use("/api/domain", domainRouter);
   app.use("/api/auth", authRouter);
   app.use("/api/login", legacyAuthRouter);
