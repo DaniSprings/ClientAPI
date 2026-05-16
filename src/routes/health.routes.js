@@ -1,17 +1,17 @@
 import express from "express";
-import { executeQuery, getDatabaseHealth } from "../config/database.js";
+//import { executeQuery, getDatabaseHealth } from "../config/database.js";
 import { getSupabaseHealth } from "../config/supabase.js";
 
 const router = express.Router();
 
-router.get("/", async (req, res) => {
+/*router.get("/", async (req, res) => {
   const health = await getDatabaseHealth();
   const statusCode = health.connected ? 200 : 503;
   res.status(statusCode).json({
     service: "revreview-node-api",
     ...health,
   });
-});
+});*/
 
 router.get("/supabase", async (req, res) => {
   const health = await getSupabaseHealth();
@@ -24,7 +24,7 @@ router.get("/supabase", async (req, res) => {
   });
 });
 
-router.get("/db-test", async (req, res) => {
+/*router.get("/db-test", async (req, res) => {
   try {
     const result = await executeQuery((request) =>
       request.query("SELECT 1 AS test"),
@@ -59,6 +59,6 @@ router.get("/cars-test", async (req, res) => {
       error: err.message,
     });
   }
-});
+});*/
 
 export default router;
