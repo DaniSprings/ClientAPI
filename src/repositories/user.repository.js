@@ -1,4 +1,4 @@
-import { executeQuery } from "../config/database.js";
+import { executeQuery } from "../config/supabase.js";
 
 const mapUserRecord = (row) => ({
   userId: row.UserId,
