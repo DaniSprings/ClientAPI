@@ -1,221 +1,184 @@
-import { executeQuery } from "../config/supabase.js";
+import { supabase } from "../config/supabase.js";
 
 const mapUserRecord = (row) => ({
-  userId: row.UserId,
-  name: row.Name,
-  surname: row.Surname,
-  dateOfBirth: row.DateOfBirth,
-  occupation: row.Occupation,
-  email: row.Email,
-  passwordHash: row.PasswordHash,
-  authProvider: row.AuthProvider,
-  externalAuthId: row.ExternalAuthId,
-  createdAt: row.CreatedAt,
-  updatedAt: row.UpdatedAt,
+  userId: row.userid,
+  name: row.name,
+  surname: row.surname,
+  dateOfBirth: row.dateofbirth,
+  occupation: row.occupation,
+  email: row.email,
+  passwordHash: row.passwordhash,
+  authProvider: row.authprovider,
+  externalAuthId: row.externalauthid,
+  createdAt: row.createdat,
+  updatedAt: row.updatedat,
 });
 
 export const userRepository = {
   async findByEmail(email) {
-    const result = await executeQuery((request, sql) =>
-      request.input("email", sql.NVarChar(255), email).query(`
-          SELECT TOP (1) *
-          FROM UserAccount
-          WHERE Email = @email;
-        `),
-    );
+    const { data, error } = await supabase
+      .from("useraccount")
+      .select("*")
+      .eq("email", email)
+      .limit(1)
+      .maybeSingle();
 
-    return result.recordset[0] ? mapUserRecord(result.recordset[0]) : null;
+    if (error) throw error;
+    return data ? mapUserRecord(data) : null;
   },
 
   async findByProvider(provider, externalAuthId) {
-    const result = await executeQuery((request, sql) =>
-      request
-        .input("provider", sql.NVarChar(50), provider)
-        .input("externalAuthId", sql.NVarChar(255), externalAuthId).query(`
-          SELECT TOP (1) *
-          FROM UserAccount
-          WHERE AuthProvider = @provider
-            AND ExternalAuthId = @externalAuthId;
-        `),
-    );
+    const { data, error } = await supabase
+      .from("useraccount")
+      .select("*")
+      .eq("authprovider", provider)
+      .eq("externalauthid", externalAuthId)
+      .limit(1)
+      .maybeSingle();
 
-    return result.recordset[0] ? mapUserRecord(result.recordset[0]) : null;
+    if (error) throw error;
+    return data ? mapUserRecord(data) : null;
   },
 
   async findById(userId) {
-    const result = await executeQuery((request, sql) =>
-      request.input("userId", sql.Int, userId).query(`
-          SELECT TOP (1) *
-          FROM UserAccount
-          WHERE UserId = @userId;
-        `),
-    );
+    const { data, error } = await supabase
+      .from("useraccount")
+      .select("*")
+      .eq("userid", userId)
+      .limit(1)
+      .maybeSingle();
 
-    return result.recordset[0] ? mapUserRecord(result.recordset[0]) : null;
+    if (error) throw error;
+    return data ? mapUserRecord(data) : null;
   },
 
-  async createLocalUser({
-    name,
-    surname,
-    dateOfBirth,
-    occupation,
-    email,
-    passwordHash,
-  }) {
-    const result = await executeQuery((request, sql) =>
-      request
-        .input("name", sql.NVarChar(100), name)
-        .input("surname", sql.NVarChar(100), surname)
-        .input("dateOfBirth", sql.Date, dateOfBirth || null)
-        .input("occupation", sql.NVarChar(150), occupation || null)
-        .input("email", sql.NVarChar(255), email)
-        .input("passwordHash", sql.NVarChar(255), passwordHash).query(`
-          INSERT INTO UserAccount (
-            Name,
-            Surname,
-            DateOfBirth,
-            Occupation,
-            Email,
-            PasswordHash,
-            AuthProvider
-          )
-          OUTPUT INSERTED.*
-          VALUES (
-            @name,
-            @surname,
-            @dateOfBirth,
-            @occupation,
-            @email,
-            @passwordHash,
-            'local'
-          );
-        `),
-    );
+  async createLocalUser({ name, surname, dateOfBirth, occupation, email, passwordHash }) {
+    const { data, error } = await supabase
+      .from("useraccount")
+      .insert({
+        name,
+        surname,
+        dateofbirth: dateOfBirth ?? null,
+        occupation: occupation ?? null,
+        email,
+        passwordhash: passwordHash,
+        authprovider: "local",
+      })
+      .select()
+      .single();
 
-    return mapUserRecord(result.recordset[0]);
+    if (error) throw error;
+    return mapUserRecord(data);
   },
 
   async createSocialUser({ name, surname, email, provider, externalAuthId }) {
-    const result = await executeQuery((request, sql) =>
-      request
-        .input("name", sql.NVarChar(100), name)
-        .input("surname", sql.NVarChar(100), surname)
-        .input("email", sql.NVarChar(255), email)
-        .input("provider", sql.NVarChar(50), provider)
-        .input("externalAuthId", sql.NVarChar(255), externalAuthId).query(`
-          INSERT INTO UserAccount (
-            Name,
-            Surname,
-            Email,
-            AuthProvider,
-            ExternalAuthId
-          )
-          OUTPUT INSERTED.*
-          VALUES (
-            @name,
-            @surname,
-            @email,
-            @provider,
-            @externalAuthId
-          );
-        `),
-    );
+    const { data, error } = await supabase
+      .from("useraccount")
+      .insert({
+        name,
+        surname,
+        email,
+        authprovider: provider,
+        externalauthid: externalAuthId,
+      })
+      .select()
+      .single();
 
-    return mapUserRecord(result.recordset[0]);
+    if (error) throw error;
+    return mapUserRecord(data);
   },
 
   async linkSocialProvider(userId, provider, externalAuthId) {
-    await executeQuery((request, sql) =>
-      request
-        .input("userId", sql.Int, userId)
-        .input("provider", sql.NVarChar(50), provider)
-        .input("externalAuthId", sql.NVarChar(255), externalAuthId).query(`
-          UPDATE UserAccount
-          SET AuthProvider = @provider,
-              ExternalAuthId = @externalAuthId,
-              UpdatedAt = SYSDATETIMEOFFSET()
-          WHERE UserId = @userId;
-        `),
-    );
+    const { error } = await supabase
+      .from("useraccount")
+      .update({
+        authprovider: provider,
+        externalauthid: externalAuthId,
+        updatedat: new Date().toISOString(),
+      })
+      .eq("userid", userId);
+
+    if (error) throw error;
   },
 
   async updateUserProfile(userId, updates) {
-    const result = await executeQuery((request, sql) =>
-      request
-        .input("userId", sql.Int, userId)
-        .input("name", sql.NVarChar(100), updates.name || null)
-        .input("surname", sql.NVarChar(100), updates.surname || null)
-        .input("occupation", sql.NVarChar(150), updates.occupation || null)
-        .input("email", sql.NVarChar(255), updates.email || null).query(`
-          UPDATE UserAccount
-          SET Name = COALESCE(@name, Name),
-              Surname = COALESCE(@surname, Surname),
-              Occupation = COALESCE(@occupation, Occupation),
-              Email = COALESCE(@email, Email),
-              UpdatedAt = SYSDATETIMEOFFSET()
-          OUTPUT INSERTED.*
-          WHERE UserId = @userId;
-        `),
-    );
+    // Build the patch object with only provided fields
+    const patch = {};
+    if (updates.name !== undefined) patch.name = updates.name;
+    if (updates.surname !== undefined) patch.surname = updates.surname;
+    if (updates.occupation !== undefined) patch.occupation = updates.occupation;
+    if (updates.email !== undefined) patch.email = updates.email;
+    patch.updatedat = new Date().toISOString();
 
-    return result.recordset[0] ? mapUserRecord(result.recordset[0]) : null;
+    const { data, error } = await supabase
+      .from("useraccount")
+      .update(patch)
+      .eq("userid", userId)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    return data ? mapUserRecord(data) : null;
   },
 
   async updatePassword(userId, passwordHash) {
-    await executeQuery((request, sql) =>
-      request
-        .input("userId", sql.Int, userId)
-        .input("passwordHash", sql.NVarChar(255), passwordHash).query(`
-          UPDATE UserAccount
-          SET PasswordHash = @passwordHash,
-              UpdatedAt = SYSDATETIMEOFFSET()
-          WHERE UserId = @userId;
-        `),
-    );
+    const { error } = await supabase
+      .from("useraccount")
+      .update({
+        passwordhash: passwordHash,
+        updatedat: new Date().toISOString(),
+      })
+      .eq("userid", userId);
+
+    if (error) throw error;
   },
 
   async addSearchHistory(userId, searchTerm, filterJson) {
-    const result = await executeQuery((request, sql) =>
-      request
-        .input("userId", sql.Int, userId)
-        .input("searchTerm", sql.NVarChar(200), searchTerm)
-        .input("filterJson", sql.NVarChar(sql.MAX), filterJson || null).query(`
-          INSERT INTO UserSearchHistory (UserId, SearchTerm, FilterJson)
-          OUTPUT INSERTED.*
-          VALUES (@userId, @searchTerm, @filterJson);
-        `),
-    );
+    const { data, error } = await supabase
+      .from("usersearchhistory")
+      .insert({
+        userid: userId,
+        searchterm: searchTerm,
+        filterjson: filterJson ?? null,
+      })
+      .select()
+      .single();
 
-    return result.recordset[0];
+    if (error) throw error;
+    return data;
   },
 
   async getSearchHistory(userId, limit = 20, offset = 0) {
-    const result = await executeQuery((request, sql) =>
-      request
-        .input("userId", sql.Int, userId)
-        .input("limit", sql.Int, limit)
-        .input("offset", sql.Int, offset).query(`
-          SELECT SearchId, UserId, SearchTerm, FilterJson, CreatedAt
-          FROM UserSearchHistory
-          WHERE UserId = @userId
-          ORDER BY CreatedAt DESC
-          OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
-        `),
-    );
+    const { data, error } = await supabase
+      .from("usersearchhistory")
+      .select("searchid, userid, searchterm, filterjson, createdat")
+      .eq("userid", userId)
+      .order("createdat", { ascending: false })
+      .range(offset, offset + limit - 1);
 
-    return result.recordset;
+    if (error) throw error;
+    return data;
   },
 
   async clearSearchHistory(userId) {
-    const result = await executeQuery((request, sql) =>
-      request.input("userId", sql.Int, userId).query(`
-          DELETE FROM UserSearchHistory
-          WHERE UserId = @userId;
+    // Supabase doesn't return a row count from delete directly,
+    // so we fetch matching IDs first, then delete.
+    const { data: rows, error: fetchError } = await supabase
+      .from("usersearchhistory")
+      .select("searchid")
+      .eq("userid", userId);
 
-          SELECT @@ROWCOUNT AS deletedCount;
-        `),
-    );
+    if (fetchError) throw fetchError;
 
-    return result.recordset[0]?.deletedCount || 0;
+    if (!rows || rows.length === 0) return 0;
+
+    const { error: deleteError } = await supabase
+      .from("usersearchhistory")
+      .delete()
+      .eq("userid", userId);
+
+    if (deleteError) throw deleteError;
+
+    return rows.length;
   },
 };
