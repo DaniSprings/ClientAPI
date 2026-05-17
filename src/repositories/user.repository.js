@@ -1,4 +1,4 @@
-import { supabase } from "../config/supabase.js";
+import { getSupabaseClient } from "../config/supabase.js";
 
 const mapUserRecord = (row) => ({
   userId: row.userid,
@@ -16,7 +16,7 @@ const mapUserRecord = (row) => ({
 
 export const userRepository = {
   async findByEmail(email) {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
       .from("useraccount")
       .select("*")
       .eq("email", email)
@@ -28,7 +28,7 @@ export const userRepository = {
   },
 
   async findByProvider(provider, externalAuthId) {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
       .from("useraccount")
       .select("*")
       .eq("authprovider", provider)
@@ -41,7 +41,7 @@ export const userRepository = {
   },
 
   async findById(userId) {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
       .from("useraccount")
       .select("*")
       .eq("userid", userId)
@@ -53,7 +53,7 @@ export const userRepository = {
   },
 
   async createLocalUser({ name, surname, dateOfBirth, occupation, email, passwordHash }) {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
       .from("useraccount")
       .insert({
         name,
@@ -72,7 +72,7 @@ export const userRepository = {
   },
 
   async createSocialUser({ name, surname, email, provider, externalAuthId }) {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
       .from("useraccount")
       .insert({
         name,
@@ -89,7 +89,7 @@ export const userRepository = {
   },
 
   async linkSocialProvider(userId, provider, externalAuthId) {
-    const { error } = await supabase
+    const { error } = await getSupabaseClient()
       .from("useraccount")
       .update({
         authprovider: provider,
@@ -102,7 +102,6 @@ export const userRepository = {
   },
 
   async updateUserProfile(userId, updates) {
-    // Build the patch object with only provided fields
     const patch = {};
     if (updates.name !== undefined) patch.name = updates.name;
     if (updates.surname !== undefined) patch.surname = updates.surname;
@@ -110,7 +109,7 @@ export const userRepository = {
     if (updates.email !== undefined) patch.email = updates.email;
     patch.updatedat = new Date().toISOString();
 
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
       .from("useraccount")
       .update(patch)
       .eq("userid", userId)
@@ -122,7 +121,7 @@ export const userRepository = {
   },
 
   async updatePassword(userId, passwordHash) {
-    const { error } = await supabase
+    const { error } = await getSupabaseClient()
       .from("useraccount")
       .update({
         passwordhash: passwordHash,
@@ -134,7 +133,7 @@ export const userRepository = {
   },
 
   async addSearchHistory(userId, searchTerm, filterJson) {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
       .from("usersearchhistory")
       .insert({
         userid: userId,
@@ -149,7 +148,7 @@ export const userRepository = {
   },
 
   async getSearchHistory(userId, limit = 20, offset = 0) {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
       .from("usersearchhistory")
       .select("searchid, userid, searchterm, filterjson, createdat")
       .eq("userid", userId)
@@ -161,24 +160,20 @@ export const userRepository = {
   },
 
   async clearSearchHistory(userId) {
-    // Supabase doesn't return a row count from delete directly,
-    // so we fetch matching IDs first, then delete.
-    const { data: rows, error: fetchError } = await supabase
+    const { data: rows, error: fetchError } = await getSupabaseClient()
       .from("usersearchhistory")
       .select("searchid")
       .eq("userid", userId);
 
     if (fetchError) throw fetchError;
-
     if (!rows || rows.length === 0) return 0;
 
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await getSupabaseClient()
       .from("usersearchhistory")
       .delete()
       .eq("userid", userId);
 
     if (deleteError) throw deleteError;
-
     return rows.length;
   },
 };
