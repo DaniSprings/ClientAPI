@@ -1,6 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import {isDatabaseConfigured } from "./env.js";
-import { env } from "./env.js";
+import {env, isDatabaseConfigured } from "./env.js";
 import { HttpError } from "../utils/http-error.js";
 
 let supabaseClient = null;
@@ -14,15 +13,18 @@ export const getSupabaseClient = () => {
   }
 
   if (!supabaseClient) {
-    supabaseClient = createClient(env.supabaseUrl, env.supabaseServiceRoleKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-      db: {
+    supabaseClient = createClient(
+      env.supabaseUrl, 
+      env.supabaseServiceRoleKey, 
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+        db: {
         schema: env.supabaseSchema,
-      },
-    });
+        },
+      });
   }
 
   return supabaseClient;
