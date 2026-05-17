@@ -1,8 +1,8 @@
-import { getSupabaseClient } from "../config/supabase.js"; // adjust path if needed
+import { getSupabaseClient } from "../config/supabase.js"; 
 
 export const vehicleRepository = {
   async getAllBrands() {
-    const supabase = getSupabaseClient(); // ✅ uses the shared configured client
+    const supabase = getSupabaseClient(); 
     const { data, error } = await supabase
       .from("BrandTable")
       .select("BrandNames")
