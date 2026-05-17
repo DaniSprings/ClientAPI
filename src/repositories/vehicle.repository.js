@@ -1,23 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
-import { getSupabaseClient } from "./supabase.js";
-
-/**
- * Supabase client.
- * Required environment variables:
- *   SUPABASE_URL  – e.g. https://xxxx.supabase.co
- *   SUPABASE_KEY  – your anon or service-role key
- *
- * Depends on:
- *   - View:     public.vehicle_view      (see schema setup instructions)
- *   - Function: public.brands_with_count (see schema setup instructions)
- */
-/*const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY,
-);*/
-
-
-
 import { getSupabaseClient } from "../config/supabase.js"; // adjust path if needed
 
 export const vehicleRepository = {
