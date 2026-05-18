@@ -5,7 +5,7 @@ import { cors } from "cors";
 const app = createApp();
 app.use(cors({
   origin: [
-    "https://your-vercel-app.vercel.app",
+    "https://client-deployment-xi.vercel.app",
     "https://www.revreview.co.za"
   ],
   credentials: true
