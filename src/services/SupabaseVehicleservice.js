@@ -1,4 +1,4 @@
-import { env } from 
+import { env } from env.js';
 /**
  * supabaseVehicleService.js
  *
@@ -11,7 +11,7 @@ import { env } from
  * so callers never have to unwrap { data, error } themselves.
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || '';
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://clientapi-production-01e4.up.railway.app';
 
 /**
  * Thin fetch wrapper — throws a descriptive Error on non-2xx responses.
