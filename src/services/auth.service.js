@@ -9,23 +9,24 @@ const splitName = (fullName) => {
 };
 
 const buildPayload = (session, user, profile) => ({
-  token: session.access_token,
-  userId: user.id,
-  username: user.email,
-  email: user.email,
-  name: profile?.name || "",
-  surname: profile?.surname || "",
+  token:      session.access_token,
+  userId:     user.id,
+  username:   user.email,
+  email:      user.email,
+  name:       profile?.name       || "",
+  surname:    profile?.surname    || "",
   occupation: profile?.occupation || "",
 });
 
 export const authService = {
+  // ─── Auth ──────────────────────────────────────────────────────────────────
+
   async signUp(payload) {
     const db = getSupabase();
 
-    // Create auth user — email_confirm:true skips the verification email
     const { data: { user }, error } = await db.auth.admin.createUser({
-      email: payload.email,
-      password: payload.password,
+      email:         payload.email,
+      password:      payload.password,
       email_confirm: true,
     });
 
@@ -38,41 +39,31 @@ export const authService = {
     }
 
     const profile = await userRepository.createProfile({
-      userId: user.id,
-      name: payload.name,
-      surname: payload.surname,
+      userId:      user.id,
+      name:        payload.name,
+      surname:     payload.surname,
       dateOfBirth: payload.dateOfBirth,
-      occupation: payload.occupation,
+      occupation:  payload.occupation,
     });
 
-    // Sign in to obtain a session token for the response
     const anon = getAnonSupabase();
     const { data: signInData, error: signInError } =
-      await anon.auth.signInWithPassword({
-        email: payload.email,
-        password: payload.password,
-      });
+      await anon.auth.signInWithPassword({ email: payload.email, password: payload.password });
 
     if (signInError || !signInData.session) {
-      throw new HttpError(
-        500,
-        "Account created but login failed. Please log in manually.",
-      );
+      throw new HttpError(500, "Account created but login failed. Please log in manually.");
     }
 
     return buildPayload(signInData.session, signInData.user, profile || {
-      name: payload.name,
-      surname: payload.surname,
+      name:       payload.name,
+      surname:    payload.surname,
       occupation: payload.occupation,
     });
   },
 
   async login(email, password) {
     const anon = getAnonSupabase();
-    const { data, error } = await anon.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error } = await anon.auth.signInWithPassword({ email, password });
 
     if (error || !data.session) {
       throw new HttpError(401, "Invalid email or password.");
@@ -83,12 +74,11 @@ export const authService = {
   },
 
   async socialLogin({ provider, providerId, email, fullName }) {
-    const db = getSupabase();
+    const db   = getSupabase();
     const anon = getAnonSupabase();
-    // Deterministic dev password — not a real credential, dev-only flow
-    const tempPassword = `__dev_${provider}_${Buffer.from(providerId).toString("base64").slice(0, 16)}__`;
+    const tempPassword =
+      `__dev_${provider}_${Buffer.from(providerId).toString("base64").slice(0, 16)}__`;
 
-    // Try signing in first (user may already exist from a previous dev login)
     const { data: existingSession, error: signInErr } =
       await anon.auth.signInWithPassword({ email, password: tempPassword });
 
@@ -97,24 +87,19 @@ export const authService = {
       return buildPayload(existingSession.session, existingSession.user, profile);
     }
 
-    // Create user
     const { name, surname } = splitName(fullName);
-    const { data: { user }, error: createError } =
-      await db.auth.admin.createUser({
-        email,
-        password: tempPassword,
-        email_confirm: true,
-        user_metadata: { provider, provider_id: providerId },
-      });
+    const { data: { user }, error: createError } = await db.auth.admin.createUser({
+      email,
+      password:      tempPassword,
+      email_confirm: true,
+      user_metadata: { provider, provider_id: providerId },
+    });
 
     if (createError) throw new HttpError(500, createError.message);
 
     const profile = await userRepository.createProfile({ userId: user.id, name, surname });
 
-    const { data, error } = await anon.auth.signInWithPassword({
-      email,
-      password: tempPassword,
-    });
+    const { data, error } = await anon.auth.signInWithPassword({ email, password: tempPassword });
     if (error) throw new HttpError(500, "Social login session could not be created.");
 
     return buildPayload(data.session, data.user, profile || { name, surname, occupation: null });
@@ -127,14 +112,15 @@ export const authService = {
         "Social popup login is disabled. Set ALLOW_DEV_SOCIAL_LOGIN=true for local development.",
       );
     }
-
     return this.socialLogin({
       provider,
       providerId: `dev-${provider}`,
-      email: `${provider}.demo@local.dev`,
-      fullName: `${provider} demo`,
+      email:      `${provider}.demo@local.dev`,
+      fullName:   `${provider} demo`,
     });
   },
+
+  // ─── Profile ───────────────────────────────────────────────────────────────
 
   async getCurrentUser(userId) {
     const db = getSupabase();
@@ -144,13 +130,14 @@ export const authService = {
 
     const profile = await userRepository.getProfile(userId);
     return {
-      userId: user.id,
-      email: user.email,
-      username: user.email,
-      name: profile?.name || user.user_metadata?.name || "",
-      surname: profile?.surname || user.user_metadata?.surname || "",
-      occupation: profile?.occupation || user.user_metadata?.occupation || "",
-      dateOfBirth: profile?.dateOfBirth || user.user_metadata?.dateOfBirth || user.user_metadata?.date_of_birth || null,
+      userId:       user.id,
+      email:        user.email,
+      username:     user.email,
+      name:         profile?.name         || user.user_metadata?.name       || "",
+      surname:      profile?.surname      || user.user_metadata?.surname    || "",
+      occupation:   profile?.occupation   || user.user_metadata?.occupation || "",
+      dateOfBirth:  profile?.dateOfBirth  || user.user_metadata?.dateOfBirth
+                                          || user.user_metadata?.date_of_birth || null,
       authProvider: user.app_metadata?.provider || "email",
     };
   },
@@ -159,9 +146,7 @@ export const authService = {
     const db = getSupabase();
 
     if (updates.email) {
-      const { error } = await db.auth.admin.updateUserById(userId, {
-        email: updates.email,
-      });
+      const { error } = await db.auth.admin.updateUserById(userId, { email: updates.email });
       if (error) throw new HttpError(500, error.message);
     }
 
@@ -171,26 +156,24 @@ export const authService = {
     const { data: { user } } = await db.auth.admin.getUserById(userId);
     return {
       userId,
-      email: user?.email || updates.email,
-      username: user?.email || updates.email,
-      name: updatedProfile.name,
-      surname: updatedProfile.surname,
-      occupation: updatedProfile.occupation,
+      email:       user?.email          || updates.email,
+      username:    user?.email          || updates.email,
+      name:        updatedProfile.name,
+      surname:     updatedProfile.surname,
+      occupation:  updatedProfile.occupation,
       dateOfBirth: updatedProfile.dateOfBirth,
     };
   },
 
   async changePassword(userId, oldPassword, newPassword) {
-    const db = getSupabase();
+    const db   = getSupabase();
     const anon = getAnonSupabase();
 
-    const { data: { user }, error: getUserError } =
-      await db.auth.admin.getUserById(userId);
+    const { data: { user }, error: getUserError } = await db.auth.admin.getUserById(userId);
     if (getUserError || !user) throw new HttpError(404, "User not found.");
 
-    // Verify old password by attempting sign-in
     const { error: verifyError } = await anon.auth.signInWithPassword({
-      email: user.email,
+      email:    user.email,
       password: oldPassword,
     });
     if (verifyError) throw new HttpError(401, "Current password is incorrect.");
@@ -201,22 +184,27 @@ export const authService = {
     if (updateError) throw new HttpError(500, updateError.message);
   },
 
-  async trackSearch(userId, searchTerm, filter) {
+  // ─── Search tracking ────────────────────────────────────────────────────────
+  // ipAddress is optional — captured from req.ip in the route and passed here
+  // so the admin dashboard can see where searches originated.
+
+  async trackSearch(userId, searchTerm, filter, ipAddress = null) {
     return userRepository.addSearchHistory(
       userId,
       searchTerm,
       filter ? JSON.stringify(filter) : null,
+      ipAddress,
     );
   },
 
   async getUserSearches(userId, limit, offset) {
     const rows = await userRepository.getSearchHistory(userId, limit, offset);
     return rows.map((row) => ({
-      searchId: row.search_id,
-      userId: row.user_id,
+      searchId:   row.search_id,
+      userId:     row.user_id,
       searchTerm: row.search_term,
-      filter: row.filter_json ? JSON.parse(row.filter_json) : null,
-      createdAt: row.created_at,
+      filter:     row.filter_json ?? null,
+      createdAt:  row.created_at,
     }));
   },
 

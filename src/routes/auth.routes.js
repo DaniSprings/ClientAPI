@@ -11,22 +11,41 @@ import { HttpError } from "../utils/http-error.js";
 const authRouter = Router();
 const legacyAuthRouter = Router();
 
+// ─── Rate limiters ───────────────────────────────────────────────────────────
+
+// Strict limiter for auth endpoints (signup / login / social-login)
 const authLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
+  windowMs: 10 * 60 * 1000, // 10 min
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: "Too many authentication attempts. Please try again later." },
 });
 
+// Guest search limiter — unauthenticated callers are rate-limited
+// Authenticated routes bypass this and get unlimited searches
+const guestSearchLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000, // 24 hours
+  max: 10, // 10 free searches per day per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => Boolean(req.user), // skip if the authenticate middleware already ran
+  message: {
+    message:
+      "You have reached the daily search limit. Please sign in for unlimited searches.",
+  },
+});
+
+// ─── Validation schemas ──────────────────────────────────────────────────────
+
 const signUpSchema = z
   .object({
-    name: z.string().trim().min(1).max(100),
-    surname: z.string().trim().min(1).max(100),
-    dateOfBirth: z.string().trim().min(1),
-    occupation: z.string().trim().min(1).max(150),
-    email: z.string().trim().email(),
-    password: z.string().min(8).max(128),
+    name:            z.string().trim().min(1).max(100),
+    surname:         z.string().trim().min(1).max(100),
+    dateOfBirth:     z.string().trim().min(1),
+    occupation:      z.string().trim().min(1).max(150),
+    email:           z.string().trim().email(),
+    password:        z.string().min(8).max(128),
     confirmPassword: z.string().min(8).max(128),
   })
   .superRefine((value, context) => {
@@ -40,54 +59,58 @@ const signUpSchema = z
   });
 
 const loginSchema = z.object({
-  email: z.string().trim().email(),
+  email:    z.string().trim().email(),
   password: z.string().min(8).max(128),
 });
 
 const socialSchema = z.object({
-  provider: z.enum(["google", "facebook"]),
+  provider:   z.enum(["google", "facebook"]),
   providerId: z.string().trim().min(1),
-  email: z.string().trim().email(),
-  fullName: z.string().trim().min(1),
+  email:      z.string().trim().email(),
+  fullName:   z.string().trim().min(1),
 });
 
 const profileSchema = z.object({
-  name: z.string().trim().min(1).max(100).optional(),
-  surname: z.string().trim().min(1).max(100).optional(),
+  name:       z.string().trim().min(1).max(100).optional(),
+  surname:    z.string().trim().min(1).max(100).optional(),
   occupation: z.string().trim().min(1).max(150).optional(),
-  email: z.string().trim().email().optional(),
+  email:      z.string().trim().email().optional(),
 });
 
 const userIdSchema = z.string().uuid();
 
 const changePasswordSchema = z.object({
-  userId: userIdSchema,
+  userId:      userIdSchema,
   oldPassword: z.string().min(8).max(128),
   newPassword: z.string().min(8).max(128),
 });
 
 const trackSearchSchema = z.object({
-  userId: userIdSchema,
+  userId:     userIdSchema,
   searchTerm: z.string().trim().min(1).max(200),
-  filter: z.any().optional(),
+  filter:     z.any().optional(),
 });
+
+// ─── Cookie helpers ──────────────────────────────────────────────────────────
 
 const setAuthCookie = (res, token) => {
   res.cookie("auth_token", token, {
     httpOnly: true,
-    secure: isProduction,
+    secure:   isProduction,
     sameSite: "lax",
-    maxAge: 2 * 60 * 60 * 1000,
+    maxAge:   2 * 60 * 60 * 1000, // 2 h
   });
 };
 
 const clearAuthCookie = (res) => {
   res.clearCookie("auth_token", {
     httpOnly: true,
-    secure: isProduction,
+    secure:   isProduction,
     sameSite: "lax",
   });
 };
+
+// ─── Shared handler ──────────────────────────────────────────────────────────
 
 const handleSignUp = asyncHandler(async (req, res) => {
   const payload = await authService.signUp({
@@ -97,6 +120,8 @@ const handleSignUp = asyncHandler(async (req, res) => {
   setAuthCookie(res, payload.token);
   res.status(201).json(payload);
 });
+
+// ─── Auth routes ─────────────────────────────────────────────────────────────
 
 authRouter.use(authLimiter);
 
@@ -152,49 +177,65 @@ authRouter.post(
     if (req.body.userId !== req.user.id) {
       throw new HttpError(403, "You can only change your own password.");
     }
-
     await authService.changePassword(
       req.body.userId,
       req.body.oldPassword,
       req.body.newPassword,
     );
-
     res.json({ message: "Password updated successfully." });
   }),
 );
 
+// ─── Search tracking ─────────────────────────────────────────────────────────
+// POST /auth/search
+//   • Authenticated users → saved to DB with full detail, unlimited
+//   • Guests             → rate-limited to 10/day; nothing saved to DB
+
 authRouter.post(
   "/search",
-  authenticate,
+  authenticate,                    // sets req.user if token present; does NOT reject guests
+  guestSearchLimiter,              // rejects guests who exceeded the daily cap
   validate(trackSearchSchema),
   asyncHandler(async (req, res) => {
+    // Guests: no userId in body, nothing to persist
+    if (!req.user) {
+      return res.status(202).json({
+        message: "Search recorded (guest mode — sign in to save history).",
+        guest: true,
+      });
+    }
+
     if (req.body.userId !== req.user.id) {
       throw new HttpError(403, "You can only track searches for your own account.");
     }
+
+    const ipAddress = req.ip || req.headers["x-forwarded-for"] || null;
 
     const entry = await authService.trackSearch(
       req.body.userId,
       req.body.searchTerm,
       req.body.filter,
+      ipAddress,            // ← new: passed down to repository for admin tracking
     );
 
     res.status(201).json({
-      searchId: entry.search_id,
-      message: entry.skipped ? "Search history is disabled for now." : "Search saved.",
-      skipped: Boolean(entry.skipped),
+      searchId:  entry.search_id,
+      message:   "Search saved.",
+      skipped:   false,
     });
   }),
 );
+
+// ─── Search history (per user) ───────────────────────────────────────────────
 
 authRouter.get(
   "/user/:userId/searches",
   authenticate,
   authorizeUserParam(),
   asyncHandler(async (req, res) => {
-    const limit = Math.min(Number(req.query.limit || 20), 100);
-    const offset = Math.max(Number(req.query.offset || 0), 0);
+    const limit  = Math.min(Number(req.query.limit  || 20), 100);
+    const offset = Math.max(Number(req.query.offset || 0),  0);
     res.json({
-      enabled: false,
       searches: await authService.getUserSearches(req.params.userId, limit, offset),
     });
   }),
@@ -206,11 +247,13 @@ authRouter.delete(
   authorizeUserParam(),
   asyncHandler(async (req, res) => {
     const deletedCount = await authService.clearUserSearches(req.params.userId);
-    res.json({ deletedCount, skipped: true });
+    res.json({ deletedCount });
   }),
 );
 
-authRouter.post("/logout", asyncHandler(async (req, res) => {
+// ─── Logout ──────────────────────────────────────────────────────────────────
+
+authRouter.post("/logout", asyncHandler(async (_req, res) => {
   clearAuthCookie(res);
   res.json({ message: "Logged out successfully." });
 }));

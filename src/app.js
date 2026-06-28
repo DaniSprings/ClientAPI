@@ -10,6 +10,8 @@ import { errorHandler } from "./middleware/error-handler.js";
 import { notFoundHandler } from "./middleware/not-found.js";
 import { HttpError } from "./utils/http-error.js";
 import { authRouter, legacyAuthRouter } from "./routes/auth.routes.js";
+import { searchRouter } from "./routes/search.routes.js";
+import { adminRouter } from "./routes/admin.routes.js";
 import carsRouter from "./routes/cars.routes.js";
 import healthRouter from "./routes/health.routes.js";
 import modelsRouter from "./routes/models.routes.js";
@@ -35,13 +37,12 @@ export const createApp = () => {
           callback(null, true);
           return;
         }
-
         callback(
           new HttpError(403, `Origin ${origin} is not allowed by CORS policy.`),
         );
       },
       credentials: true,
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
     }),
   );
@@ -60,19 +61,22 @@ export const createApp = () => {
   app.use(express.json({ limit: "10kb" }));
   app.use(express.urlencoded({ extended: false, limit: "10kb" }));
 
-  app.get("/", (req, res) => {
+  app.get("/", (_req, res) => {
     res.json({
       service: "revreview-node-api",
       message: "Use /health for status and /api for application routes.",
     });
   });
 
-  app.use("/health", healthRouter);
-  app.use("/api/models", modelsRouter);
-  app.use("/api/cars", carsRouter);
-  app.use("/api/auth", authRouter);
-  app.use("/api/login", legacyAuthRouter);
-  app.use("/auth", socialRouter);
+  // ─── Route mounts ──────────────────────────────────────────────────────────
+  app.use("/health",        healthRouter);
+  app.use("/api/models",    modelsRouter);
+  app.use("/api/cars",      carsRouter);
+  app.use("/api/auth",      authRouter);
+  app.use("/api/login",     legacyAuthRouter);   // legacy compat
+  app.use("/api/search",    searchRouter);        // ← NEW: guest + auth vehicle search
+  app.use("/api/admin",     adminRouter);         // ← NEW: admin management dashboard
+  app.use("/auth",          socialRouter);        // OAuth social callbacks
 
   app.use(notFoundHandler);
   app.use(errorHandler);
