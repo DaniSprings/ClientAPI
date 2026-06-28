@@ -1,0 +1,43 @@
+revreview-api/
+├── src/
+│   ├── server.js              # Entry point, Express init
+│   ├── config/
+│   │   ├── supabase.js        # Supabase client singleton
+│   │   └── env.js             # Zod/dotenv schema validation
+│   ├── middleware/
+│   │   ├── auth.js            # JWT verify → req.user
+│   │   ├── rateLimiter.js     # Guest vs authed limits
+│   │   └── errorHandler.js    # Global error catcher
+│   ├── routes/
+│   │   ├── authRoutes.js      # Defines URL → handler mappings only
+│   │   ├── searchRoutes.js
+│   │   ├── userRoutes.js
+│   │   ├── adminRoutes.js
+│   │   └── analyticsRoutes.js
+│   ├── controllers/           # Sits between routes and services
+│   │   ├── authController.js  # Parses req, calls service, shapes res
+│   │   └── userController.js
+│   ├── services/
+│   │   ├── authService.js     # Email/PW, Google, Facebook logic
+│   │   └── userService.js
+│   ├── repositories/          # Sits between services and the database
+│   │   ├── userRepository.js  # Wraps Supabase queries for users
+│   │   └── brandRepository.js # Wraps Supabase queries for brands
+│   └── utils/                 # Shared helpers used across the app
+│       ├── http-error.js      # Custom HttpError class
+│       └── logger.js          # Centralized logging helper
+├── .env
+├── railway.json
+└── package.json
+
+# Layer responsibilities
+# routes        -> maps an HTTP method + path to a controller function
+# controllers   -> handles req/res, calls the right service, returns a response
+# services      -> business logic (e.g. auth rules, user permissions)
+# repositories  -> talks to Supabase directly, returns plain data
+# utils         -> small reusable helpers with no business logic of their own
+#
+# Note: controllers and repositories are optional architectural layers.
+# A smaller app can skip them and have routes call services directly,
+# with services querying Supabase themselves. Add these layers once
+# route handlers or services start getting cluttered.
