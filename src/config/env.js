@@ -33,6 +33,12 @@ export const env = {
   rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 900000),
   rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 100),
   allowDevSocialLogin: process.env.ALLOW_DEV_SOCIAL_LOGIN === "true",
+  smtpHost: process.env.SMTP_HOST || "",
+  smtpPort: Number(process.env.SMTP_PORT || 587),
+  smtpSecure: process.env.SMTP_SECURE === "true",
+  smtpUser: process.env.SMTP_USER || "",
+  smtpPass: process.env.SMTP_PASS || "",
+  smtpFrom: process.env.SMTP_FROM || process.env.SMTP_USER || "",
 };
 
 export const isProduction = env.nodeEnv === "production";
@@ -42,3 +48,6 @@ export const isReadDatabaseConfigured = () =>
 
 export const isDatabaseConfigured = () =>
   Boolean(env.supabaseUrl && !isPlaceholderSecret(env.supabaseServiceRoleKey));
+
+export const isEmailConfigured = () =>
+  Boolean(env.smtpHost && env.smtpPort && env.smtpUser && env.smtpPass && env.smtpFrom);

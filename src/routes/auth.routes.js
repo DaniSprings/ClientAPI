@@ -7,6 +7,7 @@ import { isProduction } from "../config/env.js";
 import { authService } from "../services/auth.service.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { HttpError } from "../utils/http-error.js";
+import { sendComparisonResultsEmail } from "../utils/mailer.js";
 
 const authRouter = Router();
 const legacyAuthRouter = Router();
@@ -89,6 +90,20 @@ const trackSearchSchema = z.object({
   userId:     userIdSchema,
   searchTerm: z.string().trim().min(1).max(200),
   filter:     z.any().optional(),
+});
+
+const comparisonEmailSchema = z.object({
+  cars: z
+    .array(
+      z.object({
+        id: z.number(),
+        brand: z.string().optional(),
+        model: z.string().optional(),
+        details: z.record(z.any()),
+      }),
+    )
+    .min(1)
+    .max(6),
 });
 
 // ─── Cookie helpers ──────────────────────────────────────────────────────────
@@ -257,5 +272,31 @@ authRouter.post("/logout", asyncHandler(async (_req, res) => {
   clearAuthCookie(res);
   res.json({ message: "Logged out successfully." });
 }));
+
+authRouter.post(
+  "/send-comparison-email",
+  authenticate,
+  validate(comparisonEmailSchema),
+  asyncHandler(async (req, res) => {
+    const email = req.user?.email;
+
+    if (!email) {
+      throw new HttpError(400, "No email is associated with the current user account.");
+    }
+
+    const profile = await authService.getCurrentUser(req.user.id);
+
+    await sendComparisonResultsEmail({
+      toEmail: email,
+      recipientName: profile?.name || profile?.username || email,
+      cars: req.body.cars,
+    });
+
+    res.status(202).json({
+      message: "Compared results were sent to your email.",
+      recipient: email,
+    });
+  }),
+);
 
 export { authRouter, legacyAuthRouter };
