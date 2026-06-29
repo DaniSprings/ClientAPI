@@ -40,6 +40,7 @@ export const env = {
     (!process.env.SMTP_SECURE && Number(process.env.SMTP_PORT || 587) === 465),
   smtpUser: process.env.SMTP_USER || "",
   smtpPass: process.env.SMTP_PASS || "",
+  resendApiKey: process.env.RESEND_API_KEY || process.env.SMTP_PASS || "",
   smtpFrom:
     process.env.SMTP_FROM ||
     process.env.EMAIL_FROM ||

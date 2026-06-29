@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { env, isEmailConfigured } from "../config/env.js";
 import { HttpError } from "./http-error.js";
 
@@ -23,6 +24,7 @@ const formatValue = (value, suffix = "") => {
 };
 
 let transporter = null;
+let resendClient = null;
 
 const getTransporter = () => {
   if (!isEmailConfigured()) {
@@ -47,6 +49,22 @@ const getTransporter = () => {
   });
 
   return transporter;
+};
+
+const getResendClient = () => {
+  if (!env.resendApiKey) {
+    throw new HttpError(
+      503,
+      "Resend API key is not configured. Set RESEND_API_KEY in environment variables.",
+    );
+  }
+
+  if (resendClient) {
+    return resendClient;
+  }
+
+  resendClient = new Resend(env.resendApiKey);
+  return resendClient;
 };
 
 const buildTableRows = (cars = []) =>
@@ -120,4 +138,19 @@ export const sendComparisonResultsEmail = async ({ toEmail, recipientName, cars 
     subject,
     html,
   });
+};
+
+export const listResendEmailAttachments = async (emailId) => {
+  if (!emailId || typeof emailId !== "string") {
+    throw new HttpError(400, "A valid emailId is required.");
+  }
+
+  const resend = getResendClient();
+  const { data, error } = await resend.emails.attachments.list({ emailId });
+
+  if (error) {
+    throw new HttpError(502, error.message || "Failed to list email attachments from Resend.");
+  }
+
+  return data;
 };
