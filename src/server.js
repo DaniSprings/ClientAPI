@@ -3,7 +3,7 @@ import { env } from "./config/env.js";
 
 const app = createApp();
 
-const PORT = env.port || 3000;
+const PORT = env.port || 4000;
 
 app.listen(PORT, () => {
   console.log(`RevReview Node API listening on http://localhost:${PORT}`);

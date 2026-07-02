@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"name": "Client_Deployment",
+			"path": "../../ClientUI/Client_Deployment"
+		}
+	],
+	"settings": {}
+}
