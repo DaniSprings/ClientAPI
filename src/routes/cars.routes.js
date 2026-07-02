@@ -64,4 +64,4 @@ router.get(
   asyncHandler(carsController.getAllVehicles),
 );
 
-export default router;
+export const carsRouter = router;
