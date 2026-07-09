@@ -18,6 +18,14 @@ const splitList = (value, fallback) => {
     .filter(Boolean);
 };
 
+const toBoolean = (value, fallback = false) => {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  return String(value).trim().toLowerCase() === "true";
+};
+
 export const env = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: Number(process.env.PORT || 4000),
@@ -27,6 +35,11 @@ export const env = {
     "http://localhost:3000",
     "http://127.0.0.1:3000",
   ]),
+  corsAllowVercelPreviews: toBoolean(process.env.CORS_ALLOW_VERCEL_PREVIEWS, true),
+  corsAllowedVercelProjects: splitList(
+    process.env.CORS_ALLOWED_VERCEL_PROJECTS,
+    ["clientdeployment", "client-deployment"],
+  ),
   supabaseUrl: process.env.SUPABASE_URL || "",
   supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",

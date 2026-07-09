@@ -17,6 +17,38 @@ import healthRouter from "./routes/health.routes.js";
 import modelsRouter from "./routes/models.routes.js";
 import socialRouter from "./routes/social.routes.js";
 
+const isAllowedOrigin = (origin) => {
+  if (!origin || env.corsOrigins.includes(origin)) {
+    return true;
+  }
+
+  if (!env.corsAllowVercelPreviews) {
+    return false;
+  }
+
+  try {
+    const { hostname } = new URL(origin);
+    if (!hostname.endsWith(".vercel.app")) {
+      return false;
+    }
+
+    const lowerHostname = hostname.toLowerCase();
+    return env.corsAllowedVercelProjects.some((project) => {
+      const normalizedProject = String(project || "").trim().toLowerCase();
+      if (!normalizedProject) {
+        return false;
+      }
+
+      return (
+        lowerHostname === `${normalizedProject}.vercel.app` ||
+        lowerHostname.startsWith(`${normalizedProject}-`)
+      );
+    });
+  } catch {
+    return false;
+  }
+};
+
 export const createApp = () => {
   const app = express();
 
@@ -33,7 +65,7 @@ export const createApp = () => {
   app.use(
     cors({
       origin(origin, callback) {
-        if (!origin || env.corsOrigins.includes(origin)) {
+        if (isAllowedOrigin(origin)) {
           callback(null, true);
           return;
         }
