@@ -5,9 +5,9 @@ import { authenticate, authorizeUserParam } from "../middleware/authenticate.js"
 import { validate } from "../middleware/validate.js";
 import { isProduction } from "../config/env.js";
 import { authService } from "../services/auth.service.js";
+import { sendComparisonPdfEmail } from "../services/email.service.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { HttpError } from "../utils/http-error.js";
-import { sendComparisonResultsEmail } from "../utils/mailer.js";
 
 const authRouter = Router();
 const legacyAuthRouter = Router();
@@ -286,14 +286,14 @@ authRouter.post(
 
     const profile = await authService.getCurrentUser(req.user.id);
 
-    await sendComparisonResultsEmail({
-      toEmail: email,
+    await sendComparisonPdfEmail({
+      to: email,
       recipientName: profile?.name || profile?.username || email,
       cars: req.body.cars,
     });
 
     res.status(202).json({
-      message: "Compared results were sent to your email.",
+      message: "Compared results PDF was sent to your email.",
       recipient: email,
     });
   }),
