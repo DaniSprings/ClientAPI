@@ -64,4 +64,4 @@ router.get(
   asyncHandler(carsController.getAllVehicles),
 );
 
-export { router as carsRouter };
+export default router;
