@@ -152,6 +152,7 @@ export const vehicleService = {
       model: vehicle.model,
       airbags: vehicle.airbags,
       abs: vehicle.abs,
+      isoFix_mountings: vehicle.ISOFIXSeatMountings,
       tractionControl: vehicle.tractionControl,
       stabilityControl: vehicle.stabilityControl,
     };
