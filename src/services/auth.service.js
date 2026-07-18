@@ -54,6 +54,18 @@ const cleanupExpiredTrackSearchKeys = (now) => {
   }
 };
 
+const isSearchHistoryUnavailableError = (error) => {
+  const message = String(error?.message || "").toLowerCase();
+  const code = String(error?.code || "").toUpperCase();
+
+  return (
+    code === "PGRST205" ||
+    message.includes("public.search_history") ||
+    message.includes("schema cache") ||
+    message.includes("relation \"search_history\" does not exist")
+  );
+};
+
 export const authService = {
   // ─── Auth ──────────────────────────────────────────────────────────────────
 
@@ -238,12 +250,23 @@ export const authService = {
       };
     }
 
-    const entry = await userRepository.addSearchHistory(
-      userId,
-      searchTerm,
-      filter ? JSON.stringify(filter) : null,
-      ipAddress,
-    );
+    let entry;
+    try {
+      entry = await userRepository.addSearchHistory(
+        userId,
+        searchTerm,
+        filter ? JSON.stringify(filter) : null,
+        ipAddress,
+      );
+    } catch (error) {
+      if (isSearchHistoryUnavailableError(error)) {
+        return {
+          skipped: true,
+          reason: "search_history_unavailable",
+        };
+      }
+      throw error;
+    }
 
     recentTrackSearches.set(dedupeKey, now);
 
@@ -254,7 +277,16 @@ export const authService = {
   },
 
   async getUserSearches(userId, limit, offset) {
-    const rows = await userRepository.getSearchHistory(userId, limit, offset);
+    let rows = [];
+    try {
+      rows = await userRepository.getSearchHistory(userId, limit, offset);
+    } catch (error) {
+      if (!isSearchHistoryUnavailableError(error)) {
+        throw error;
+      }
+      rows = [];
+    }
+
     return rows.map((row) => ({
       searchId:   row.search_id,
       userId:     row.user_id,
@@ -265,6 +297,13 @@ export const authService = {
   },
 
   async clearUserSearches(userId) {
-    return userRepository.clearSearchHistory(userId);
+    try {
+      return await userRepository.clearSearchHistory(userId);
+    } catch (error) {
+      if (isSearchHistoryUnavailableError(error)) {
+        return 0;
+      }
+      throw error;
+    }
   },
 };

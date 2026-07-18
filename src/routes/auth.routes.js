@@ -234,9 +234,14 @@ authRouter.post(
     );
 
     if (trackResult.skipped) {
+      const message = trackResult.reason === "search_history_unavailable"
+        ? "Search tracking is temporarily unavailable until search_history is provisioned."
+        : "Duplicate search ignored within dedupe window.";
+
       return res.status(202).json({
         searchId: null,
-        message: "Duplicate search ignored within dedupe window.",
+        message,
+        reason: trackResult.reason || "skipped",
         skipped: true,
       });
     }
