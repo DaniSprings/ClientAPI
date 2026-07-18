@@ -3,26 +3,8 @@ import { HttpError } from "../utils/http-error.js";
 import { buildAutoCorrectResult, rankSuggestions } from "../utils/search.js";
 
 const mapVehicle = (row) => ({
+  ...row,
   id: `${row.brandId}-${row.modelId}`,
-  brand: row.brand,
-  model: row.model,
-  price: row.price,
-  priceStatus: row.priceStatus,
-  priceExclEmissionsTax: row.priceExclEmissionsTax,
-  engine: row.engine,
-  cylinders: row.cylinders,
-  power: row.power,
-  torque: row.torque,
-  acceleration: row.acceleration,
-  topSpeed: row.topSpeed,
-  fuelConsumption: row.fuelConsumption,
-  fuelRange: row.fuelRange,
-  length: row.length,
-  width: row.width,
-  widthExclMirrorsInclMirrors: row.widthExclMirrorsInclMirrors || row.width,
-  height: row.height,
-  wheelbase: row.wheelbase,
-  groundClearance: row.groundClearance,
   dimensions: {
     length: row.length,
     width: row.width,

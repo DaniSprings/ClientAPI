@@ -32,9 +32,14 @@ const VEHICLE_SELECT = [
   "ModelNames",
   "BodyShape",
   "brandtable!inner ( Brand_ID, BrandNames )",
-  "pricetable ( Price, price_excl_emissions_tax )",
-  "performancetable ( EngineType, Cylinders, Fuel, Power, Torque, Acceleration, TopSpeed, AverageConsumption, Range )",
+  "pricetable ( Price )",
+  "performancetable ( EngineType, Cylinders, Fuel, Power, Torque, Acceleration, TopSpeed, AverageConsumption, Range, TankSize, Steering, DrivenWheels, GearRatios )",
   "dimensiontable ( Length, width_excl_mirrors, width_incl_mirrors, height, wheelbase, ground_clearance )",
+  "towingtable ( towbarFitted:\"towbar / trailer hitch\", wadingDepth:\"wading depth\", loadVolume:\"load volume / capacity\", dryWeight:\"Dry weight (DIN)\", kerbWeight:\"Kerb weight (EU)\", payloadCapacity:\"load carrying capacity / payload\", gvm:\"gross weight (GVM)\", towingUnbraked:\"towing capacity - unbraked\", towingBraked:\"towing capacity - braked\" )",
+  "safetytable ( driverAirbag:\"driver airbag\", frontPassengerAirbag:\"front passenger airbag\", driverKneeAirbag:\"driver knee airbag\", passengerKneeAirbag:\"passenger knee airbag\", frontSideAirbags:\"front side airbags\", rearSideAirbags:\"rear side airbags\", curtainAirbags:\"curtain airbags\", airbagQuantity:\"airbag quantity\", childProofSafetyLock:\"child-proof/safety lock\", isofixMountings:\"ISOFIX Seat Mountings\", collisionWarning:\"collision warning + auto brake\" )",
+  "extrastable ( airConditioning:\"air conditioning\", rearAirConditioningControls:\"4-zone / rear air-conditioning controls\", powerSteering:\"power steering\", electricPowerSteering:\"electric power steering\", leatherSteeringWheelRim:\"leather steering wheel rim\", multiFunctionSteeringWheelControls:\"multi-function steering wheel controls\", laneDepartureWarning:\"lane departure warning\", attentionAssist:\"attention assist / rest assist / break alert / fatigue detectio\", headUpDisplay:\"head-up display\", controlsScreenInputMethod:\"controls screen input method\", navigation:\"navigation\", cruiseControl:\"cruise control\", adaptiveCruiseControl:\"active/adaptive cruise control\", bluetooth:\"Bluetooth connectivity\", usbPort:\"USB port\", electricWindows:\"electric windows\", heatedRearScreen:\"heated rear screen / rear demister\", autoDimExteriorMirrors:\"autodim exterior mirrors\", suedeClothUpholstery:\"suede-cloth upholstery\", leatherUpholstery:\"leather upholstery\", lumbarSupportAdjustment:\"lumbar support adjustment\", electricDriverSeat:\"electric seat adjustment - driver\", electricSeatMemory:\"memory for electric seat adjustment\", frontVentilatedSeats:\"ventilated seats - front\" )",
+  "servicetable ( warrantyYears:\"warranty time (years)\", warrantyDistance:\"warranty distance\", serviceMaintenancePlan:\"service/maintenance plan\", servicePlanYears:\"service plan time (years)\", servicePlanDistance:\"service plan distance\", maintenancePlan:\"maintenance plan\", maintenancePlanYears:\"maintenance plan time (years)\", maintenancePlanDistance:\"maintenance plan distance\", serviceIntervalDistance:\"service interval distance\", serviceIntervalDistance1:\"service interval distance_1\" )",
+
 ].join(", ");
 
 // ─── Row mappers ─────────────────────────────────────────────────────────────
@@ -58,6 +63,10 @@ const mapVehicleViewRow = (row) => ({
   topSpeed:                   row.topSpeed                   ?? row.top_speed   ?? null,
   fuelConsumption:            row.fuelConsumption            ?? row.avg_consumption ?? null,
   fuelRange:                  row.fuelRange                  ?? row.range       ?? null,
+  tankSize:                   row.tankSize                   ?? row.tank_size   ?? null,
+  steering:                   row.steering                                     ?? null,
+  drivenWheels:               row.drivenWheels               ?? row.driven_wheels ?? null,
+  gearRatios:                 row.gearRatios                 ?? row.gear_ratios ?? null,
   length:                     row.length                                        ?? null,
   width:                      row.width                      ?? row.width_excl_mirrors ?? null,
   widthExclMirrorsInclMirrors: row.widthExclMirrorsInclMirrors
@@ -82,34 +91,51 @@ const mapVehicleViewRow = (row) => ({
   airbagQuantity:             row.airbagQuantity             ?? null,
   driverAirbag:               row.driverAirbag               ?? null,
   frontPassengerAirbag:       row.frontPassengerAirbag       ?? null,
+  driverKneeAirbag:           row.driverKneeAirbag           ?? null,
+  passengerKneeAirbag:        row.passengerKneeAirbag        ?? null,
   frontSideAirbags:           row.frontSideAirbags           ?? null,
   rearSideAirbags:            row.rearSideAirbags            ?? null,
   curtainAirbags:             row.curtainAirbags             ?? null,
-  driverKneeAirbag:           row.driverKneeAirbag           ?? null,
+  childProofSafetyLock:       row.childProofSafetyLock       ?? null,
   isofixMountings:            row.isofixMountings            ?? null,
   collisionWarning:           row.collisionWarning           ?? null,
 
   // Extras
   airConditioning:            row.airConditioning            ?? null,
+  rearAirConditioningControls: row.rearAirConditioningControls ?? null,
+  powerSteering:              row.powerSteering              ?? null,
+  electricPowerSteering:      row.electricPowerSteering      ?? null,
+  leatherSteeringWheelRim:    row.leatherSteeringWheelRim    ?? null,
+  multiFunctionSteeringWheelControls: row.multiFunctionSteeringWheelControls ?? null,
   navigation:                 row.navigation                 ?? null,
   cruiseControl:              row.cruiseControl              ?? null,
   adaptiveCruiseControl:      row.adaptiveCruiseControl      ?? null,
   bluetooth:                  row.bluetooth                  ?? null,
   usbPort:                    row.usbPort                    ?? null,
+  electricWindows:            row.electricWindows            ?? null,
   leatherUpholstery:          row.leatherUpholstery          ?? null,
   electricDriverSeat:         row.electricDriverSeat         ?? null,
+  electricSeatMemory:         row.electricSeatMemory         ?? null,
+  frontVentilatedSeats:       row.frontVentilatedSeats       ?? null,
   headUpDisplay:              row.headUpDisplay              ?? null,
+  attentionAssist:            row.attentionAssist            ?? null,
+  autoDimExteriorMirrors:     row.autoDimExteriorMirrors     ?? null,
+  suedeClothUpholstery:       row.suedeClothUpholstery       ?? null,
+  lumbarSupportAdjustment:    row.lumbarSupportAdjustment    ?? null,
   laneDepartureWarning:       row.laneDepartureWarning       ?? null,
   heatedRearScreen:           row.heatedRearScreen           ?? null,
 
   // Service & Warranty
   warrantyYears:              row.warrantyYears              ?? null,
   warrantyDistance:           row.warrantyDistance           ?? null,
+  serviceMaintenancePlan:     row.serviceMaintenancePlan     ?? null,
   servicePlanYears:           row.servicePlanYears           ?? null,
   servicePlanDistance:        row.servicePlanDistance        ?? null,
+  maintenancePlan:            row.maintenancePlan            ?? null,
   maintenancePlanYears:       row.maintenancePlanYears       ?? null,
   maintenancePlanDistance:    row.maintenancePlanDistance    ?? null,
   serviceIntervalDistance:    row.serviceIntervalDistance    ?? null,
+  serviceIntervalDistance1:    row.serviceIntervalDistance1    ?? null,
 });
 
 /** Maps a raw modeltable row returned by the embedded-join fallback. */
@@ -117,6 +143,10 @@ const mapRow = (row) => {
   const price = row.pricetable?.[0]       ?? {};
   const ep    = row.performancetable?.[0] ?? {};
   const dim   = row.dimensiontable?.[0]   ?? {};
+  const tow   = row.towingtable?.[0]      ?? {};
+  const safety = row.safetytable?.[0]     ?? {};
+  const extras = row.extrastable?.[0]     ?? {};
+  const service = row.servicetable?.[0]   ?? {};
   const brand = row.brandtable            ?? {};
 
   return {
@@ -138,6 +168,10 @@ const mapRow = (row) => {
     topSpeed:                   ep.TopSpeed                                   ?? null,
     fuelConsumption:            ep.AverageConsumption                         ?? null,
     fuelRange:                  ep.Range                                      ?? null,
+    tankSize:                   ep.TankSize                                   ?? null,
+    steering:                   ep.Steering                                   ?? null,
+    drivenWheels:               ep.DrivenWheels                               ?? null,
+    gearRatios:                 ep.GearRatios                                 ?? null,
     length:                     dim.Length                                    ?? null,
     width:                      dim.width_excl_mirrors != null
                                   ? String(dim.width_excl_mirrors)            : null,
@@ -147,51 +181,67 @@ const mapRow = (row) => {
                                   ? String(dim.wheelbase)                     : null,
     groundClearance:            dim.ground_clearance                          ?? null,
 
-    // Towing & Mass — fallback join doesn't include these tables,
-    // so they all return null. Once vehicle_view is stable these
-    // will always come from mapVehicleViewRow instead.
-    towingBraked:               null,
-    towingUnbraked:             null,
-    kerbWeight:                 null,
-    gvm:                        null,
-    loadVolume:                 null,
-    dryWeight:                  null,
-    payloadCapacity:            null,
-    towbarFitted:               null,
-    wadingDepth:                null,
+    // Towing & Mass
+    towingBraked:               tow.towingBraked                              ?? null,
+    towingUnbraked:             tow.towingUnbraked                            ?? null,
+    kerbWeight:                 tow.kerbWeight                                ?? null,
+    gvm:                        tow.gvm                                       ?? null,
+    loadVolume:                 tow.loadVolume                                ?? null,
+    dryWeight:                  tow.dryWeight                                 ?? null,
+    payloadCapacity:            tow.payloadCapacity                           ?? null,
+    towbarFitted:               tow.towbarFitted                              ?? null,
+    wadingDepth:                tow.wadingDepth                               ?? null,
 
     // Safety
-    airbagQuantity:             null,
-    driverAirbag:               null,
-    frontPassengerAirbag:       null,
-    frontSideAirbags:           null,
-    rearSideAirbags:            null,
-    curtainAirbags:             null,
-    driverKneeAirbag:           null,
-    isofixMountings:            null,
-    collisionWarning:           null,
+    airbagQuantity:             safety.airbagQuantity                          ?? null,
+    driverAirbag:               safety.driverAirbag                            ?? null,
+    frontPassengerAirbag:       safety.frontPassengerAirbag                    ?? null,
+    driverKneeAirbag:           safety.driverKneeAirbag                        ?? null,
+    passengerKneeAirbag:        safety.passengerKneeAirbag                     ?? null,
+    frontSideAirbags:           safety.frontSideAirbags                       ?? null,
+    rearSideAirbags:            safety.rearSideAirbags                        ?? null,
+    curtainAirbags:             safety.curtainAirbags                         ?? null,
+    childProofSafetyLock:       safety.childProofSafetyLock                   ?? null,
+    isofixMountings:            safety.isofixMountings                        ?? null,
+    collisionWarning:           safety.collisionWarning                       ?? null,
 
     // Extras
-    airConditioning:            null,
-    navigation:                 null,
-    cruiseControl:              null,
-    adaptiveCruiseControl:      null,
-    bluetooth:                  null,
-    usbPort:                    null,
-    leatherUpholstery:          null,
-    electricDriverSeat:         null,
-    headUpDisplay:              null,
-    laneDepartureWarning:       null,
-    heatedRearScreen:           null,
+    airConditioning:            extras.airConditioning                        ?? null,
+    rearAirConditioningControls: extras.rearAirConditioningControls           ?? null,
+    powerSteering:              extras.powerSteering                          ?? null,
+    electricPowerSteering:      extras.electricPowerSteering                  ?? null,
+    leatherSteeringWheelRim:    extras.leatherSteeringWheelRim                ?? null,
+    multiFunctionSteeringWheelControls: extras.multiFunctionSteeringWheelControls ?? null,
+    laneDepartureWarning:       extras.laneDepartureWarning                   ?? null,
+    attentionAssist:            extras.attentionAssist                        ?? null,
+    headUpDisplay:              extras.headUpDisplay                          ?? null,
+    controlsScreenInputMethod:  extras.controlsScreenInputMethod              ?? null,
+    navigation:                 extras.navigation                             ?? null,
+    cruiseControl:              extras.cruiseControl                          ?? null,
+    adaptiveCruiseControl:      extras.adaptiveCruiseControl                  ?? null,
+    bluetooth:                  extras.bluetooth                              ?? null,
+    usbPort:                    extras.usbPort                                ?? null,
+    electricWindows:            extras.electricWindows                        ?? null,
+    heatedRearScreen:           extras.heatedRearScreen                       ?? null,
+    autoDimExteriorMirrors:     extras.autoDimExteriorMirrors                 ?? null,
+    suedeClothUpholstery:       extras.suedeClothUpholstery                   ?? null,
+    leatherUpholstery:          extras.leatherUpholstery                      ?? null,
+    lumbarSupportAdjustment:    extras.lumbarSupportAdjustment                ?? null,
+    electricDriverSeat:         extras.electricDriverSeat                     ?? null,
+    electricSeatMemory:         extras.electricSeatMemory                     ?? null,
+    frontVentilatedSeats:       extras.frontVentilatedSeats                   ?? null,
 
     // Service & Warranty
-    warrantyYears:              null,
-    warrantyDistance:           null,
-    servicePlanYears:           null,
-    servicePlanDistance:        null,
-    maintenancePlanYears:       null,
-    maintenancePlanDistance:    null,
-    serviceIntervalDistance:    null,
+    warrantyYears:              service.warrantyYears                         ?? null,
+    warrantyDistance:           service.warrantyDistance                      ?? null,
+    serviceMaintenancePlan:     service.serviceMaintenancePlan                ?? null,
+    servicePlanYears:           service.servicePlanYears                      ?? null,
+    servicePlanDistance:        service.servicePlanDistance                   ?? null,
+    maintenancePlan:            service.maintenancePlan                       ?? null,
+    maintenancePlanYears:       service.maintenancePlanYears                  ?? null,
+    maintenancePlanDistance:    service.maintenancePlanDistance               ?? null,
+    serviceIntervalDistance:    service.serviceIntervalDistance               ?? null,
+    serviceIntervalDistance1:    service.serviceIntervalDistance1               ?? null,
   };
 };
 
