@@ -50,6 +50,10 @@ const VEHICLE_SELECT = [
  * If you add/remove columns from the view, update this list to match —
  * do not silently allow it to drift, since there's no other guardrail
  * ensuring the two stay in sync.
+ *
+ * priceStatus / priceExclEmissionsTax are intentionally NOT mapped:
+ * pricetable only ever had ID, MODEL_ID, Price — those two were always
+ * placeholder nulls, never real columns.
  */
 const mapVehicleViewRow = (row) => ({
   brandId:                    row.brandId                    ?? null,
@@ -67,6 +71,10 @@ const mapVehicleViewRow = (row) => ({
   topSpeed:                   row.topSpeed                    ?? null,
   fuelConsumption:            row.fuelConsumption              ?? null,
   fuelRange:                  row.fuelRange                   ?? null,
+  tankSize:                   row.tankSize                     ?? null,
+  steering:                   row.steering                     ?? null,
+  drivenWheels:               row.drivenWheels                ?? null,
+  gearRatios:                 row.gearRatios                   ?? null,
   length:                     row.length                       ?? null,
   width:                      row.width                        ?? null,
   widthExclMirrorsInclMirrors: row.widthExclMirrorsInclMirrors ?? null,
@@ -89,34 +97,52 @@ const mapVehicleViewRow = (row) => ({
   airbagQuantity:             row.airbagQuantity               ?? null,
   driverAirbag:               row.driverAirbag                 ?? null,
   frontPassengerAirbag:       row.frontPassengerAirbag         ?? null,
+  driverKneeAirbag:           row.driverKneeAirbag             ?? null,
+  passengerKneeAirbag:        row.passengerKneeAirbag          ?? null,
   frontSideAirbags:           row.frontSideAirbags             ?? null,
   rearSideAirbags:            row.rearSideAirbags              ?? null,
   curtainAirbags:             row.curtainAirbags               ?? null,
-  driverKneeAirbag:           row.driverKneeAirbag             ?? null,
+  childProofSafetyLock:       row.childProofSafetyLock         ?? null,
   isofixMountings:            row.isofixMountings               ?? null,
   collisionWarning:           row.collisionWarning             ?? null,
 
   // Extras
   airConditioning:            row.airConditioning              ?? null,
+  rearAirConditioningControls: row.rearAirConditioningControls ?? null,
+  powerSteering:              row.powerSteering                ?? null,
+  electricPowerSteering:      row.electricPowerSteering        ?? null,
+  leatherSteeringWheelRim:    row.leatherSteeringWheelRim      ?? null,
+  multiFunctionSteeringWheelControls: row.multiFunctionSteeringWheelControls ?? null,
   navigation:                 row.navigation                    ?? null,
   cruiseControl:              row.cruiseControl                ?? null,
   adaptiveCruiseControl:      row.adaptiveCruiseControl        ?? null,
   bluetooth:                  row.bluetooth                     ?? null,
   usbPort:                    row.usbPort                       ?? null,
+  electricWindows:            row.electricWindows               ?? null,
   leatherUpholstery:          row.leatherUpholstery            ?? null,
+  suedeClothUpholstery:       row.suedeClothUpholstery          ?? null,
+  lumbarSupportAdjustment:    row.lumbarSupportAdjustment       ?? null,
   electricDriverSeat:         row.electricDriverSeat           ?? null,
+  electricSeatMemory:         row.electricSeatMemory            ?? null,
+  frontVentilatedSeats:       row.frontVentilatedSeats          ?? null,
   headUpDisplay:              row.headUpDisplay                ?? null,
+  controlsScreenInputMethod:  row.controlsScreenInputMethod     ?? null,
+  attentionAssist:            row.attentionAssist               ?? null,
   laneDepartureWarning:       row.laneDepartureWarning         ?? null,
   heatedRearScreen:           row.heatedRearScreen             ?? null,
+  autoDimExteriorMirrors:     row.autoDimExteriorMirrors        ?? null,
 
   // Service & Warranty
   warrantyYears:              row.warrantyYears                ?? null,
   warrantyDistance:           row.warrantyDistance             ?? null,
+  serviceMaintenancePlan:     row.serviceMaintenancePlan        ?? null,
   servicePlanDistance:        row.servicePlanDistance          ?? null,
   servicePlanYears:           row.servicePlanYears             ?? null,
+  maintenancePlan:            row.maintenancePlan               ?? null,
   maintenancePlanDistance:    row.maintenancePlanDistance      ?? null,
   maintenancePlanYears:       row.maintenancePlanYears         ?? null,
   serviceIntervalDistance:    row.serviceIntervalDistance      ?? null,
+  serviceIntervalDistance1:   row.serviceIntervalDistance1      ?? null,
 });
 
 /** Maps a raw modeltable row returned by the embedded-join fallback. */

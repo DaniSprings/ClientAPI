@@ -99,7 +99,6 @@ export const vehicleService = {
       brand: vehicle.brand,
       model: vehicle.model,
       price: vehicle.price,
-      priceStatus: vehicle.priceStatus,
     };
   },
 
