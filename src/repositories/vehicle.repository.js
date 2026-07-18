@@ -66,6 +66,50 @@ const mapVehicleViewRow = (row) => ({
   height:                     row.height                                        ?? null,
   wheelbase:                  row.wheelbase                                     ?? null,
   groundClearance:            row.groundClearance            ?? row.ground_clearance ?? null,
+
+  // Towing & Mass
+  towingBraked:               row.towingBraked               ?? null,
+  towingUnbraked:             row.towingUnbraked             ?? null,
+  kerbWeight:                 row.kerbWeight                 ?? null,
+  gvm:                        row.gvm                        ?? null,
+  loadVolume:                 row.loadVolume                 ?? null,
+  dryWeight:                  row.dryWeight                  ?? null,
+  payloadCapacity:            row.payloadCapacity            ?? null,
+  towbarFitted:               row.towbarFitted               ?? null,
+  wadingDepth:                row.wadingDepth                ?? null,
+
+  // Safety
+  airbagQuantity:             row.airbagQuantity             ?? null,
+  driverAirbag:               row.driverAirbag               ?? null,
+  frontPassengerAirbag:       row.frontPassengerAirbag       ?? null,
+  frontSideAirbags:           row.frontSideAirbags           ?? null,
+  rearSideAirbags:            row.rearSideAirbags            ?? null,
+  curtainAirbags:             row.curtainAirbags             ?? null,
+  driverKneeAirbag:           row.driverKneeAirbag           ?? null,
+  isofixMountings:            row.isofixMountings            ?? null,
+  collisionWarning:           row.collisionWarning           ?? null,
+
+  // Extras
+  airConditioning:            row.airConditioning            ?? null,
+  navigation:                 row.navigation                 ?? null,
+  cruiseControl:              row.cruiseControl              ?? null,
+  adaptiveCruiseControl:      row.adaptiveCruiseControl      ?? null,
+  bluetooth:                  row.bluetooth                  ?? null,
+  usbPort:                    row.usbPort                    ?? null,
+  leatherUpholstery:          row.leatherUpholstery          ?? null,
+  electricDriverSeat:         row.electricDriverSeat         ?? null,
+  headUpDisplay:              row.headUpDisplay              ?? null,
+  laneDepartureWarning:       row.laneDepartureWarning       ?? null,
+  heatedRearScreen:           row.heatedRearScreen           ?? null,
+
+  // Service & Warranty
+  warrantyYears:              row.warrantyYears              ?? null,
+  warrantyDistance:           row.warrantyDistance           ?? null,
+  servicePlanYears:           row.servicePlanYears           ?? null,
+  servicePlanDistance:        row.servicePlanDistance        ?? null,
+  maintenancePlanYears:       row.maintenancePlanYears       ?? null,
+  maintenancePlanDistance:    row.maintenancePlanDistance    ?? null,
+  serviceIntervalDistance:    row.serviceIntervalDistance    ?? null,
 });
 
 /** Maps a raw modeltable row returned by the embedded-join fallback. */
@@ -102,6 +146,52 @@ const mapRow = (row) => {
     wheelbase:                  dim.wheelbase != null
                                   ? String(dim.wheelbase)                     : null,
     groundClearance:            dim.ground_clearance                          ?? null,
+
+    // Towing & Mass — fallback join doesn't include these tables,
+    // so they all return null. Once vehicle_view is stable these
+    // will always come from mapVehicleViewRow instead.
+    towingBraked:               null,
+    towingUnbraked:             null,
+    kerbWeight:                 null,
+    gvm:                        null,
+    loadVolume:                 null,
+    dryWeight:                  null,
+    payloadCapacity:            null,
+    towbarFitted:               null,
+    wadingDepth:                null,
+
+    // Safety
+    airbagQuantity:             null,
+    driverAirbag:               null,
+    frontPassengerAirbag:       null,
+    frontSideAirbags:           null,
+    rearSideAirbags:            null,
+    curtainAirbags:             null,
+    driverKneeAirbag:           null,
+    isofixMountings:            null,
+    collisionWarning:           null,
+
+    // Extras
+    airConditioning:            null,
+    navigation:                 null,
+    cruiseControl:              null,
+    adaptiveCruiseControl:      null,
+    bluetooth:                  null,
+    usbPort:                    null,
+    leatherUpholstery:          null,
+    electricDriverSeat:         null,
+    headUpDisplay:              null,
+    laneDepartureWarning:       null,
+    heatedRearScreen:           null,
+
+    // Service & Warranty
+    warrantyYears:              null,
+    warrantyDistance:           null,
+    servicePlanYears:           null,
+    servicePlanDistance:        null,
+    maintenancePlanYears:       null,
+    maintenancePlanDistance:    null,
+    serviceIntervalDistance:    null,
   };
 };
 
