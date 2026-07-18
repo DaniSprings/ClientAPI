@@ -1,105 +1,120 @@
 import { getReadSupabase } from "../config/database.js";
 import { HttpError } from "../utils/http-error.js";
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 const isMissingRelation = (error) =>
-  Boolean(error?.message?.includes("schema cache") || error?.message?.includes("Could not find the table"));
+  Boolean(
+    error?.message?.includes("schema cache") ||
+      error?.message?.includes("Could not find the table") ||
+      error?.message?.includes("Could not find a relationship"),
+  );
 
 const withLegacyFallback = async (primaryQuery, fallbackQuery) => {
   const primaryResult = await primaryQuery();
   if (!primaryResult.error || !isMissingRelation(primaryResult.error)) {
     return primaryResult;
   }
-
   return fallbackQuery();
-};
-
-// PostgREST embedded-join select for full vehicle data.
-// Relies on FK relationships declared in the Supabase schema:
-// modeltable.Brand_ID    → brandtable.Brand_ID     (!inner = INNER JOIN)
-// pricetable.MODEL_ID    → modeltable.MODEL_ID     (LEFT JOIN)
-// performancetable.MODEL_ID → modeltable.MODEL_ID  (LEFT JOIN)
-// dimensiontable2.MODEL_ID  → modeltable.MODEL_ID  (LEFT JOIN)
-// NOTE: embedding only works if these FKs are actually declared as foreign
-// keys in Postgres (not just same-named columns). If PostgREST can't find a
-// relationship, this query will fail with "Could not find a relationship..."
-// and this fallback path won't actually save you — see note below.
-
-const VEHICLE_SELECT = [
-  "MODEL_ID",
-  "ModelNames",
-  "brandtable!inner ( Brand_ID, BrandNames )",
-  "pricetable ( Price, price_excl_emissions_tax )",
-  "performancetable ( Engine, Cylinders, Power, Torque, Acceleration, TopSpeed, FuelConsumption, FuelRange )",
-  "dimensiontable2 ( length, width, width_incl_mirrors, heightmin, heightmax, wheelbase, ground_min, ground_max )",
-].join(", ");
-
-const mapVehicleViewRow = (row) => ({
-  brandId: row.brandId ?? null,
-  brand: row.brand ?? null,
-  modelId: row.modelId,
-  model: row.model,
-  price: row.price ?? null,
-  priceExclEmissionsTax: row.priceExclEmissionsTax ?? null,
-  priceStatus: row.priceStatus ?? null,
-  engine: row.engine ?? null,
-  cylinders: row.cylinders ?? null,
-  power: row.power ?? null,
-  torque: row.torque ?? null,
-  acceleration: row.acceleration ?? null,
-  topSpeed: row.topSpeed ?? null,
-  fuelConsumption: row.fuelConsumption ?? null,
-  fuelRange: row.fuelRange ?? null,
-  length: row.length ?? null,
-  width: row.width ?? null,
-  widthExclMirrorsInclMirrors: row.widthInclMirrors ?? row.width ?? null,
-  height: row.height ?? null,
-  wheelbase: row.wheelbase ?? null,
-  groundClearance: row.groundClearance ?? null,
-});
-
-const formatRange = (min, max) => {
-  if (min == null && max == null) return null;
-  if (min == null) return `${max}`;
-  if (max == null) return `${min}`;
-  return min === max ? `${min}` : `${min} - ${max}`;
-};
-
-const mapRow = (row) => {
-  const price = row.pricetable?.[0] ?? {};
-  const ep = row.performancetable?.[0] ?? {};
-  const dim = row.dimensiontable2?.[0] ?? {};
-  const brand = row.brandtable ?? {};
-
-  return {
-    brandId: brand.Brand_ID ?? null,
-    brand: brand.BrandNames ?? null,
-    modelId: row.MODEL_ID,
-    model: row.ModelNames,
-    price: price.Price ?? null,
-    priceExclEmissionsTax: price.price_excl_emissions_tax ?? null,
-    priceStatus: null,
-    engine: ep.Engine ?? null,
-    cylinders: ep.Cylinders ?? null,
-    power: ep.Power ?? null,
-    torque: ep.Torque ?? null,
-    acceleration: ep.Acceleration ?? null,
-    topSpeed: ep.TopSpeed ?? null,
-    fuelConsumption: ep.FuelConsumption ?? null,
-    fuelRange: ep.FuelRange ?? null,
-    length: dim.length ?? null,
-    width: dim.width ?? null,
-    widthExclMirrorsInclMirrors: formatRange(dim.width, dim.width_incl_mirrors),
-    height: formatRange(dim.heightmin, dim.heightmax),
-    wheelbase: dim.wheelbase ?? null,
-    groundClearance: formatRange(dim.ground_min, dim.ground_max),
-  };
 };
 
 const throwOnError = (error) => {
   if (error) throw new HttpError(503, error.message);
 };
 
-// Resolve brand name → brand_id. Returns null when the brand is not found.
+// ─── PostgREST embedded-join select ──────────────────────────────────────────
+// NOTE: "Engine" here must match the actual column name in performancetable.
+// The Supabase schema uses "EngineType" — we alias it via mapRow below.
+// If your performancetable column is literally "EngineType", change "Engine"
+// to "EngineType" in this string and update mapRow accordingly.
+const VEHICLE_SELECT = [
+  "MODEL_ID",
+  "ModelNames",
+  "BodyShape",
+  "brandtable!inner ( Brand_ID, BrandNames )",
+  "pricetable ( Price, price_excl_emissions_tax )",
+  "performancetable ( EngineType, Cylinders, Fuel, Power, Torque, Acceleration, TopSpeed, AverageConsumption, Range )",
+  "dimensiontable ( Length, width_excl_mirrors, width_incl_mirrors, height, wheelbase, ground_clearance )",
+].join(", ");
+
+// ─── Row mappers ─────────────────────────────────────────────────────────────
+
+/** Maps a row returned by vehicle_view (flat columns, camelCase). */
+const mapVehicleViewRow = (row) => ({
+  brandId:                    row.brandId                    ?? row.brand_id    ?? null,
+  brand:                      row.brand                                         ?? null,
+  modelId:                    row.modelId                    ?? row.model_id,
+  model:                      row.model,
+  bodyShape:                  row.bodyShape                  ?? row.body_shape  ?? null,
+  price:                      row.price                                         ?? null,
+  priceExclEmissionsTax:      row.priceExclEmissionsTax      ?? row.price_excl_emissions_tax ?? null,
+  priceStatus:                row.priceStatus                ?? row.price_status ?? null,
+  engine:                     row.engine                     ?? row.engineType  ?? null,
+  cylinders:                  row.cylinders                                     ?? null,
+  fuel:                       row.fuel                                          ?? null,
+  power:                      row.power                                         ?? null,
+  torque:                     row.torque                                        ?? null,
+  acceleration:               row.acceleration                                  ?? null,
+  topSpeed:                   row.topSpeed                   ?? row.top_speed   ?? null,
+  fuelConsumption:            row.fuelConsumption            ?? row.avg_consumption ?? null,
+  fuelRange:                  row.fuelRange                  ?? row.range       ?? null,
+  length:                     row.length                                        ?? null,
+  width:                      row.width                      ?? row.width_excl_mirrors ?? null,
+  widthExclMirrorsInclMirrors: row.widthExclMirrorsInclMirrors
+                               ?? formatRange(row.width_excl_mirrors, row.width_incl_mirrors)
+                               ?? null,
+  height:                     row.height                                        ?? null,
+  wheelbase:                  row.wheelbase                                     ?? null,
+  groundClearance:            row.groundClearance            ?? row.ground_clearance ?? null,
+});
+
+/** Maps a raw modeltable row returned by the embedded-join fallback. */
+const mapRow = (row) => {
+  const price = row.pricetable?.[0]       ?? {};
+  const ep    = row.performancetable?.[0] ?? {};
+  const dim   = row.dimensiontable?.[0]   ?? {};
+  const brand = row.brandtable            ?? {};
+
+  return {
+    brandId:                    brand.Brand_ID                                ?? null,
+    brand:                      brand.BrandNames                              ?? null,
+    modelId:                    row.MODEL_ID,
+    model:                      row.ModelNames,
+    bodyShape:                  row.BodyShape                                 ?? null,
+    price:                      price.Price                                   ?? null,
+    priceExclEmissionsTax:      price.price_excl_emissions_tax                ?? null,
+    priceStatus:                null,
+    // performancetable uses "EngineType" per the Supabase schema
+    engine:                     ep.EngineType                                 ?? null,
+    cylinders:                  ep.Cylinders                                  ?? null,
+    fuel:                       ep.Fuel                                       ?? null,
+    power:                      ep.Power                                      ?? null,
+    torque:                     ep.Torque                                     ?? null,
+    acceleration:               ep.Acceleration                               ?? null,
+    topSpeed:                   ep.TopSpeed                                   ?? null,
+    fuelConsumption:            ep.AverageConsumption                         ?? null,
+    fuelRange:                  ep.Range                                      ?? null,
+    length:                     dim.Length                                    ?? null,
+    width:                      dim.width_excl_mirrors != null
+                                  ? String(dim.width_excl_mirrors)            : null,
+    widthExclMirrorsInclMirrors: formatRange(dim.width_excl_mirrors, dim.width_incl_mirrors),
+    height:                     dim.height                                    ?? null,
+    wheelbase:                  dim.wheelbase != null
+                                  ? String(dim.wheelbase)                     : null,
+    groundClearance:            dim.ground_clearance                          ?? null,
+  };
+};
+
+const formatRange = (min, max) => {
+  if (min == null && max == null) return null;
+  if (min == null) return String(max);
+  if (max == null) return String(min);
+  return min === max ? String(min) : `${min} - ${max}`;
+};
+
+// ─── Brand helpers ────────────────────────────────────────────────────────────
+
+/** Resolves a brand name string → numeric Brand_ID. Returns null if not found. */
 const resolveBrandId = async (db, brand) => {
   const { data, error } = await withLegacyFallback(
     () =>
@@ -121,6 +136,8 @@ const resolveBrandId = async (db, brand) => {
   if (error) throw new HttpError(503, error.message);
   return data?.brand_id ?? data?.Brand_ID ?? null;
 };
+
+// ─── Repository ───────────────────────────────────────────────────────────────
 
 export const vehicleRepository = {
   async getAllBrands() {
@@ -158,29 +175,39 @@ export const vehicleRepository = {
   async getBrandsWithCount() {
     const db = getReadSupabase();
 
-    const [{ data: brands, error: brandsError }, { data: models, error: modelsError }] =
-      await Promise.all([
-        withLegacyFallback(
-          () => db.from("brand_table").select("brand_id, brand_names").order("brand_names"),
-          () => db.from("brandtable").select("Brand_ID, BrandNames").order("BrandNames"),
-        ),
-        withLegacyFallback(
-          () => db.from("model_table").select("brand_id"),
-          () => db.from("modeltable").select("Brand_ID"),
-        ),
-      ]);
+    const [
+      { data: brands, error: brandsError },
+      { data: modelRows, error: modelsError },
+    ] = await Promise.all([
+      withLegacyFallback(
+        () =>
+          db
+            .from("brand_table")
+            .select("brand_id, brand_names")
+            .order("brand_names"),
+        () =>
+          db
+            .from("brandtable")
+            .select("Brand_ID, BrandNames")
+            .order("BrandNames"),
+      ),
+      withLegacyFallback(
+        () => db.from("model_table").select("brand_id"),
+        () => db.from("modeltable").select("Brand_ID"),
+      ),
+    ]);
 
     throwOnError(brandsError);
     throwOnError(modelsError);
 
-    const countByBrand = (models ?? []).reduce((acc, m) => {
-      const brandId = m.brand_id ?? m.Brand_ID;
-      acc[brandId] = (acc[brandId] || 0) + 1;
+    const countByBrand = (modelRows ?? []).reduce((acc, m) => {
+      const id = m.brand_id ?? m.Brand_ID;
+      acc[id] = (acc[id] || 0) + 1;
       return acc;
     }, {});
 
     return brands.map((row) => ({
-      name: row.brand_names ?? row.BrandNames,
+      name:  row.brand_names ?? row.BrandNames,
       count: countByBrand[row.brand_id ?? row.Brand_ID] || 0,
     }));
   },
@@ -237,7 +264,9 @@ export const vehicleRepository = {
 
   async getVehicleDetails(brand, model) {
     const db = getReadSupabase();
+
     const { data, error } = await withLegacyFallback(
+      // Primary: vehicle_view (flat, fast)
       () =>
         db
           .from("vehicle_view")
@@ -246,6 +275,7 @@ export const vehicleRepository = {
           .ilike("model", model)
           .limit(1)
           .maybeSingle(),
+      // Fallback: raw embedded join across legacy tables
       async () => {
         const brandId = await resolveBrandId(db, brand);
         if (!brandId) return { data: null, error: null };
@@ -262,13 +292,21 @@ export const vehicleRepository = {
 
     throwOnError(error);
     if (!data) return null;
-    return data.brand ? mapVehicleViewRow(data) : mapRow(data);
+
+    // Distinguish flat view row (has "brand" key) from embedded join row
+    return "brand" in data ? mapVehicleViewRow(data) : mapRow(data);
   },
 
   async getVehicleByModelId(modelId) {
     const db = getReadSupabase();
+
     const { data, error } = await withLegacyFallback(
-      () => db.from("vehicle_view").select("*").eq("modelId", modelId).maybeSingle(),
+      () =>
+        db
+          .from("vehicle_view")
+          .select("*")
+          .eq("modelId", modelId)
+          .maybeSingle(),
       () =>
         db
           .from("modeltable")
@@ -279,17 +317,18 @@ export const vehicleRepository = {
 
     throwOnError(error);
     if (!data) return null;
-    return data.brand ? mapVehicleViewRow(data) : mapRow(data);
+    return "brand" in data ? mapVehicleViewRow(data) : mapRow(data);
   },
 
   async searchVehicles({ brand, model, limit = 25 }) {
     const db = getReadSupabase();
+
     const { data, error } = await withLegacyFallback(
       () => {
         let q = db.from("vehicle_view").select("*");
         if (brand) q = q.ilike("brand", brand);
         if (model) q = q.ilike("model", `%${model}%`);
-        return q.order("model").limit(limit);
+        return q.order("brand").order("model").limit(limit);
       },
       async () => {
         let brandId = null;
@@ -300,13 +339,14 @@ export const vehicleRepository = {
 
         let q = db.from("modeltable").select(VEHICLE_SELECT);
         if (brandId) q = q.eq("Brand_ID", brandId);
-        if (model) q = q.ilike("ModelNames", `%${model}%`);
-
+        if (model)   q = q.ilike("ModelNames", `%${model}%`);
         return q.order("ModelNames").limit(limit);
       },
     );
 
     throwOnError(error);
-    return data.map((row) => (row.brand ? mapVehicleViewRow(row) : mapRow(row)));
+    return data.map((row) =>
+      "brand" in row ? mapVehicleViewRow(row) : mapRow(row),
+    );
   },
 };
