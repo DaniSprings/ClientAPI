@@ -18,6 +18,42 @@ const buildPayload = (session, user, profile) => ({
   occupation: profile?.occupation || "",
 });
 
+const TRACK_SEARCH_DEDUPE_WINDOW_MS = 10_000;
+const recentTrackSearches = new Map();
+
+const normalizeSearchTerm = (value) => String(value || "").trim().toLowerCase();
+
+const stableSerialize = (value) => {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableSerialize(item)).join(",")}]`;
+  }
+
+  if (typeof value === "object") {
+    const entries = Object.entries(value).sort(([a], [b]) => a.localeCompare(b));
+    return `{${entries
+      .map(([key, nested]) => `${JSON.stringify(key)}:${stableSerialize(nested)}`)
+      .join(",")}}`;
+  }
+
+  return JSON.stringify(value);
+};
+
+const buildTrackSearchDedupeKey = ({ userId, searchTerm, filter }) => {
+  return `${userId}::${normalizeSearchTerm(searchTerm)}::${stableSerialize(filter)}`;
+};
+
+const cleanupExpiredTrackSearchKeys = (now) => {
+  for (const [key, timestamp] of recentTrackSearches.entries()) {
+    if (now - timestamp > TRACK_SEARCH_DEDUPE_WINDOW_MS) {
+      recentTrackSearches.delete(key);
+    }
+  }
+};
+
 export const authService = {
   // ─── Auth ──────────────────────────────────────────────────────────────────
 
@@ -189,12 +225,32 @@ export const authService = {
   // so the admin dashboard can see where searches originated.
 
   async trackSearch(userId, searchTerm, filter, ipAddress = null) {
-    return userRepository.addSearchHistory(
+    const now = Date.now();
+    cleanupExpiredTrackSearchKeys(now);
+
+    const dedupeKey = buildTrackSearchDedupeKey({ userId, searchTerm, filter });
+    const lastSeenAt = recentTrackSearches.get(dedupeKey);
+
+    if (lastSeenAt && now - lastSeenAt <= TRACK_SEARCH_DEDUPE_WINDOW_MS) {
+      return {
+        skipped: true,
+        reason: "duplicate_within_window",
+      };
+    }
+
+    const entry = await userRepository.addSearchHistory(
       userId,
       searchTerm,
       filter ? JSON.stringify(filter) : null,
       ipAddress,
     );
+
+    recentTrackSearches.set(dedupeKey, now);
+
+    return {
+      skipped: false,
+      entry,
+    };
   },
 
   async getUserSearches(userId, limit, offset) {

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
-import { authenticate, authorizeUserParam } from "../middleware/authenticate.js";
+import { authenticate, authenticateOptional, authorizeUserParam } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
 import { isProduction } from "../config/env.js";
 import { authService } from "../services/auth.service.js";
@@ -138,13 +138,12 @@ const handleSignUp = asyncHandler(async (req, res) => {
 
 // ─── Auth routes ─────────────────────────────────────────────────────────────
 
-authRouter.use(authLimiter);
-
-authRouter.post("/signup", validate(signUpSchema), handleSignUp);
-legacyAuthRouter.post("/register", validate(signUpSchema), handleSignUp);
+authRouter.post("/signup", authLimiter, validate(signUpSchema), handleSignUp);
+legacyAuthRouter.post("/register", authLimiter, validate(signUpSchema), handleSignUp);
 
 authRouter.post(
   "/login",
+  authLimiter,
   validate(loginSchema),
   asyncHandler(async (req, res) => {
     const payload = await authService.login(
@@ -158,6 +157,7 @@ authRouter.post(
 
 authRouter.post(
   "/social-login",
+  authLimiter,
   validate(socialSchema),
   asyncHandler(async (req, res) => {
     const payload = await authService.socialLogin(req.body);
@@ -208,7 +208,7 @@ authRouter.post(
 
 authRouter.post(
   "/search",
-  authenticate,                    // sets req.user if token present; does NOT reject guests
+  authenticateOptional,            // sets req.user if token present; does NOT reject guests
   guestSearchLimiter,              // rejects guests who exceeded the daily cap
   validate(trackSearchSchema),
   asyncHandler(async (req, res) => {
@@ -226,15 +226,23 @@ authRouter.post(
 
     const ipAddress = req.ip || req.headers["x-forwarded-for"] || null;
 
-    const entry = await authService.trackSearch(
+    const trackResult = await authService.trackSearch(
       req.body.userId,
       req.body.searchTerm,
       req.body.filter,
       ipAddress,            // ← new: passed down to repository for admin tracking
     );
 
+    if (trackResult.skipped) {
+      return res.status(202).json({
+        searchId: null,
+        message: "Duplicate search ignored within dedupe window.",
+        skipped: true,
+      });
+    }
+
     res.status(201).json({
-      searchId:  entry.search_id,
+      searchId:  trackResult.entry.search_id,
       message:   "Search saved.",
       skipped:   false,
     });
