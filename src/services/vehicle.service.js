@@ -125,6 +125,9 @@ export const vehicleService = {
       fuelRange: vehicle.fuelRange,
       power: vehicle.power,
       torque: vehicle.torque,
+      Steering: vehicle.Steering,
+      DrivenWheels: vehicle.DrivenWheels,
+      GearRatios: vehicle.GearRatios,
     };
   },
 
@@ -132,4 +135,26 @@ export const vehicleService = {
     const vehicle = await this.getVehicleDetails(brand, model);
     return vehicle.dimensions;
   },
+  async getTowing(brand, model) {
+    const vehicle = await this.getVehicleDetails(brand, model);
+    return {
+      brand: vehicle.brand,
+      model: vehicle.model,
+      weight: vehicle.weight,
+      curbWeight: vehicle.curbWeight,
+      grossVehicleWeight: vehicle.grossVehicleWeight,
+    };
+  },
+   async getSafety(brand, model) {
+    const vehicle = await this.getVehicleDetails(brand, model);
+    return {
+      brand: vehicle.brand,
+      model: vehicle.model,
+      airbags: vehicle.airbags,
+      abs: vehicle.abs,
+      tractionControl: vehicle.tractionControl,
+      stabilityControl: vehicle.stabilityControl,
+    };
+  },
+
 };
