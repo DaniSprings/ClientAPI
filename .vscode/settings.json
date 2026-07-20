@@ -7,6 +7,9 @@
         "modeltable",
         "performancetable",
         "pricetable",
+        "safetytable",
+        "extrastable",
+        "towingtable",
         "Supabase",
         "towbar",
         "Unbraked"

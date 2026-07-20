@@ -36,7 +36,7 @@ const VEHICLE_SELECT = [
   "performancetable ( EngineType, Cylinders, Fuel, Power, Torque, Acceleration, TopSpeed, AverageConsumption, Range, TankSize, Steering, DrivenWheels, GearRatios )",
   "dimensiontable ( Length, width_excl_mirrors, width_incl_mirrors, height, wheelbase, ground_clearance )",
   "towingtable ( towbarFitted:\"towbar / trailer hitch\", wadingDepth:\"wading depth\", loadVolume:\"load volume / capacity\", dryWeight:\"Dry weight (DIN)\", kerbWeight:\"Kerb weight (EU)\", payloadCapacity:\"load carrying capacity / payload\", gvm:\"gross weight (GVM)\", towingUnbraked:\"towing capacity - unbraked\", towingBraked:\"towing capacity - braked\" )",
-  "safetytable ( driverAirbag:\"driver airbag\", frontPassengerAirbag:\"front passenger airbag\", driverKneeAirbag:\"driver knee airbag\", passengerKneeAirbag:\"passenger knee airbag\", frontSideAirbags:\"front side airbags\", rearSideAirbags:\"rear side airbags\", curtainAirbags:\"curtain airbags\", airbagQuantity:\"airbag quantity\", childProofSafetyLock:\"child-proof/safety lock\", isofixMountings:\"ISOFIX Seat Mountings\", collisionWarning:\"collision warning + auto brake\" )",
+  "safetytable ( driverAirbag:driverairbag, frontPassengerAirbag:front_passenger_airbag, driverKneeAirbag:driver_knee_airbag, passengerKneeAirbag:passenger_knee_airbag, frontSideAirbags:front_side_airbags, rearSideAirbags:rear_side_airbags, curtainAirbags:curtain_airbags, airbagQuantity:airbag_quantity, childProofSafetyLock:childlock, isofixMountings:isofix_mountings, collisionWarning:collision_warning_brake )",
   "extrastable ( airConditioning:\"air conditioning\", rearAirConditioningControls:\"4-zone / rear air-conditioning controls\", powerSteering:\"power steering\", electricPowerSteering:\"electric power steering\", leatherSteeringWheelRim:\"leather steering wheel rim\", multiFunctionSteeringWheelControls:\"multi-function steering wheel controls\", laneDepartureWarning:\"lane departure warning\", attentionAssist:\"attention assist / rest assist / break alert / fatigue detectio\", headUpDisplay:\"head-up display\", controlsScreenInputMethod:\"controls screen input method\", navigation:\"navigation\", cruiseControl:\"cruise control\", adaptiveCruiseControl:\"active/adaptive cruise control\", bluetooth:\"Bluetooth connectivity\", usbPort:\"USB port\", electricWindows:\"electric windows\", heatedRearScreen:\"heated rear screen / rear demister\", autoDimExteriorMirrors:\"autodim exterior mirrors\", suedeClothUpholstery:\"suede-cloth upholstery\", leatherUpholstery:\"leather upholstery\", lumbarSupportAdjustment:\"lumbar support adjustment\", electricDriverSeat:\"electric seat adjustment - driver\", electricSeatMemory:\"memory for electric seat adjustment\", frontVentilatedSeats:\"ventilated seats - front\" )",
   "servicetable ( warrantyYears:\"warranty time (years)\", warrantyDistance:\"warranty distance\", serviceMaintenancePlan:\"service/maintenance plan\", servicePlanYears:\"service plan time (years)\", servicePlanDistance:\"service plan distance\", maintenancePlan:\"maintenance plan\", maintenancePlanYears:\"maintenance plan time (years)\", maintenancePlanDistance:\"maintenance plan distance\", serviceIntervalDistance:\"service interval distance\", serviceIntervalDistance1:\"service interval distance_1\" )",
 
@@ -45,15 +45,11 @@ const VEHICLE_SELECT = [
 // ─── Row mappers ─────────────────────────────────────────────────────────────
 
 /**
- * Maps a row returned by vehicle_view (flat columns, camelCase).
- * NOTE: this mirrors the current vehicle_view SQL definition exactly.
- * If you add/remove columns from the view, update this list to match —
- * do not silently allow it to drift, since there's no other guardrail
- * ensuring the two stay in sync.
+ * Maps a row returned by vehicle_view (flat columns, camelCase) when that
+ * compatibility view exists.
  *
  * priceStatus / priceExclEmissionsTax are intentionally NOT mapped:
- * pricetable only ever had ID, MODEL_ID, Price — those two were always
- * placeholder nulls, never real columns.
+ * pricetable only exposes ID, MODEL_ID, and Price in the normalized schema.
  */
 const mapVehicleViewRow = (row) => ({
   brandId:                    row.brandId                    ?? null,
@@ -147,14 +143,14 @@ const mapVehicleViewRow = (row) => ({
 
 /** Maps a raw modeltable row returned by the embedded-join fallback. */
 const mapRow = (row) => {
-  const price = row.pricetable?.[0]       ?? {};
-  const ep    = row.performancetable?.[0] ?? {};
-  const dim   = row.dimensiontable?.[0]   ?? {};
-  const tow   = row.towingtable?.[0]      ?? {};
-  const safety = row.safetytable?.[0]     ?? {};
-  const extras = row.extrastable?.[0]     ?? {};
-  const service = row.servicetable?.[0]   ?? {};
-  const brand = row.brandtable            ?? {};
+  const price = row.pricetable?.[0] ?? {};
+  const ep = row.performancetable?.[0] ?? {};
+  const dim = row.dimensiontable?.[0] ?? {};
+  const tow = row.towingtable?.[0] ?? {};
+  const safety = row.safetytable?.[0] ?? {};
+  const extras = row.extrastable?.[0] ?? {};
+  const service = row.servicetable?.[0] ?? {};
+  const brand = row.brandtable ?? {};
 
   return {
     brandId:                    brand.Brand_ID                                ?? null,
@@ -263,25 +259,15 @@ const formatRange = (min, max) => {
 
 /** Resolves a brand name string → numeric Brand_ID. Returns null if not found. */
 const resolveBrandId = async (db, brand) => {
-  const { data, error } = await withLegacyFallback(
-    () =>
-      db
-        .from("brand_table")
-        .select("brand_id")
-        .ilike("brand_names", brand)
-        .limit(1)
-        .maybeSingle(),
-    () =>
-      db
-        .from("brandtable")
-        .select("Brand_ID")
-        .ilike("BrandNames", brand)
-        .limit(1)
-        .maybeSingle(),
-  );
+  const { data, error } = await db
+    .from("brandtable")
+    .select("Brand_ID")
+    .ilike("BrandNames", brand)
+    .limit(1)
+    .maybeSingle();
 
   if (error) throw new HttpError(503, error.message);
-  return data?.brand_id ?? data?.Brand_ID ?? null;
+  return data?.Brand_ID ?? null;
 };
 
 // ─── Repository ───────────────────────────────────────────────────────────────
@@ -289,34 +275,25 @@ const resolveBrandId = async (db, brand) => {
 export const vehicleRepository = {
   async getAllBrands() {
     const db = getReadSupabase();
-    const { data, error } = await withLegacyFallback(
-      () => db.from("brand_table").select("brand_names").order("brand_names"),
-      () => db.from("brandtable").select("BrandNames").order("BrandNames"),
-    );
+    const { data, error } = await db
+      .from("brandtable")
+      .select("BrandNames")
+      .order("BrandNames");
 
     throwOnError(error);
-    return data.map((row) => row.brand_names ?? row.BrandNames);
+    return data.map((row) => row.BrandNames);
   },
 
   async searchBrands(query) {
     const db = getReadSupabase();
-    const { data, error } = await withLegacyFallback(
-      () =>
-        db
-          .from("brand_table")
-          .select("brand_names")
-          .ilike("brand_names", `%${query}%`)
-          .order("brand_names"),
-      () =>
-        db
-          .from("brandtable")
-          .select("BrandNames")
-          .ilike("BrandNames", `%${query}%`)
-          .order("BrandNames"),
-    );
+    const { data, error } = await db
+      .from("brandtable")
+      .select("BrandNames")
+      .ilike("BrandNames", `%${query}%`)
+      .order("BrandNames");
 
     throwOnError(error);
-    return data.map((row) => row.brand_names ?? row.BrandNames);
+    return data.map((row) => row.BrandNames);
   },
 
   async getBrandsWithCount() {
@@ -326,36 +303,22 @@ export const vehicleRepository = {
       { data: brands, error: brandsError },
       { data: modelRows, error: modelsError },
     ] = await Promise.all([
-      withLegacyFallback(
-        () =>
-          db
-            .from("brand_table")
-            .select("brand_id, brand_names")
-            .order("brand_names"),
-        () =>
-          db
-            .from("brandtable")
-            .select("Brand_ID, BrandNames")
-            .order("BrandNames"),
-      ),
-      withLegacyFallback(
-        () => db.from("model_table").select("brand_id"),
-        () => db.from("modeltable").select("Brand_ID"),
-      ),
+      db.from("brandtable").select("Brand_ID, BrandNames").order("BrandNames"),
+      db.from("modeltable").select("Brand_ID"),
     ]);
 
     throwOnError(brandsError);
     throwOnError(modelsError);
 
     const countByBrand = (modelRows ?? []).reduce((acc, m) => {
-      const id = m.brand_id ?? m.Brand_ID;
+      const id = m.Brand_ID;
       acc[id] = (acc[id] || 0) + 1;
       return acc;
     }, {});
 
     return brands.map((row) => ({
-      name:  row.brand_names ?? row.BrandNames,
-      count: countByBrand[row.brand_id ?? row.Brand_ID] || 0,
+      name: row.BrandNames,
+      count: countByBrand[row.Brand_ID] || 0,
     }));
   },
 
@@ -364,23 +327,14 @@ export const vehicleRepository = {
     const brandId = await resolveBrandId(db, brand);
     if (!brandId) return [];
 
-    const { data, error } = await withLegacyFallback(
-      () =>
-        db
-          .from("model_table")
-          .select("model_names")
-          .eq("brand_id", brandId)
-          .order("model_names"),
-      () =>
-        db
-          .from("modeltable")
-          .select("ModelNames")
-          .eq("Brand_ID", brandId)
-          .order("ModelNames"),
-    );
+    const { data, error } = await db
+      .from("modeltable")
+      .select("ModelNames")
+      .eq("Brand_ID", brandId)
+      .order("ModelNames");
 
     throwOnError(error);
-    return [...new Set(data.map((row) => row.model_names ?? row.ModelNames))];
+    return [...new Set(data.map((row) => row.ModelNames))];
   },
 
   async searchModelsByBrand(brand, query) {
@@ -388,25 +342,15 @@ export const vehicleRepository = {
     const brandId = await resolveBrandId(db, brand);
     if (!brandId) return [];
 
-    const { data, error } = await withLegacyFallback(
-      () =>
-        db
-          .from("model_table")
-          .select("model_names")
-          .eq("brand_id", brandId)
-          .ilike("model_names", `%${query}%`)
-          .order("model_names"),
-      () =>
-        db
-          .from("modeltable")
-          .select("ModelNames")
-          .eq("Brand_ID", brandId)
-          .ilike("ModelNames", `%${query}%`)
-          .order("ModelNames"),
-    );
+    const { data, error } = await db
+      .from("modeltable")
+      .select("ModelNames")
+      .eq("Brand_ID", brandId)
+      .ilike("ModelNames", `%${query}%`)
+      .order("ModelNames");
 
     throwOnError(error);
-    return [...new Set(data.map((row) => row.model_names ?? row.ModelNames))];
+    return [...new Set(data.map((row) => row.ModelNames))];
   },
 
   async getVehicleDetails(brand, model) {
@@ -422,7 +366,7 @@ export const vehicleRepository = {
           .ilike("model", model)
           .limit(1)
           .maybeSingle(),
-      // Fallback: raw embedded join across legacy tables
+      // Fallback: raw embedded join across normalized tables
       async () => {
         const brandId = await resolveBrandId(db, brand);
         if (!brandId) return { data: null, error: null };

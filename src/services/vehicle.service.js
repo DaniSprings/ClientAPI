@@ -125,9 +125,9 @@ export const vehicleService = {
       fuelRange: vehicle.fuelRange,
       power: vehicle.power,
       torque: vehicle.torque,
-      Steering: vehicle.Steering,
-      DrivenWheels: vehicle.DrivenWheels,
-      GearRatios: vehicle.GearRatios,
+      steering: vehicle.steering,
+      drivenWheels: vehicle.drivenWheels,
+      gearRatios: vehicle.gearRatios,
     };
   },
 
@@ -140,21 +140,33 @@ export const vehicleService = {
     return {
       brand: vehicle.brand,
       model: vehicle.model,
-      weight: vehicle.weight,
-      curbWeight: vehicle.curbWeight,
-      grossVehicleWeight: vehicle.grossVehicleWeight,
+      towbarFitted: vehicle.towbarFitted,
+      wadingDepth: vehicle.wadingDepth,
+      loadVolume: vehicle.loadVolume,
+      dryWeight: vehicle.dryWeight,
+      kerbWeight: vehicle.kerbWeight,
+      payloadCapacity: vehicle.payloadCapacity,
+      gvm: vehicle.gvm,
+      towingUnbraked: vehicle.towingUnbraked,
+      towingBraked: vehicle.towingBraked,
     };
   },
-   async getSafety(brand, model) {
+  async getSafety(brand, model) {
     const vehicle = await this.getVehicleDetails(brand, model);
     return {
       brand: vehicle.brand,
       model: vehicle.model,
-      airbags: vehicle.airbags,
-      abs: vehicle.abs,
-      isoFix_mountings: vehicle.ISOFIXSeatMountings,
-      tractionControl: vehicle.tractionControl,
-      stabilityControl: vehicle.stabilityControl,
+      airbagQuantity: vehicle.airbagQuantity,
+      driverAirbag: vehicle.driverAirbag,
+      frontPassengerAirbag: vehicle.frontPassengerAirbag,
+      driverKneeAirbag: vehicle.driverKneeAirbag,
+      passengerKneeAirbag: vehicle.passengerKneeAirbag,
+      frontSideAirbags: vehicle.frontSideAirbags,
+      rearSideAirbags: vehicle.rearSideAirbags,
+      curtainAirbags: vehicle.curtainAirbags,
+      childProofSafetyLock: vehicle.childProofSafetyLock,
+      isofixMountings: vehicle.isofixMountings,
+      collisionWarning: vehicle.collisionWarning,
     };
   },
 

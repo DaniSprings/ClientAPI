@@ -69,8 +69,8 @@ export const getDatabaseHealth = async () => {
 
     for (const probe of [
       () => readDb.from("vehicle_view").select("modelId").limit(1),
-      () => readDb.from("brand_table").select("brand_id").limit(1),
       () => readDb.from("brandtable").select("Brand_ID").limit(1),
+      () => readDb.from("modeltable").select("MODEL_ID").limit(1),
     ]) {
       const { error } = await probe();
       if (!error) {

@@ -20,7 +20,7 @@ router.get("/db-test", async (req, res) => {
 
     ({ data, error } = await db.from("brandtable").select("Brand_ID, BrandNames").limit(1));
     if (error) {
-      ({ data, error } = await db.from("brand_table").select("brand_id, brand_names").limit(1));
+      throw error;
     }
 
     if (error) {
@@ -52,8 +52,8 @@ router.get("/cars-test", async (req, res) => {
 
     if (error) {
       ({ data, error } = await db
-        .from("model_table")
-        .select("model_id, model_names, brand_table!inner(brand_names)")
+        .from("modeltable")
+        .select("MODEL_ID, ModelNames, Brand_ID, BodyShape, brandtable!inner(BrandNames)")
         .limit(5));
     }
 

@@ -6,7 +6,7 @@
  * ┌─────────────┬─────────────────────────────────────────────────────────┐
  * │ Tier        │ Behaviour                                               │
  * ├─────────────┼─────────────────────────────────────────────────────────┤
- * │ Guest       │ 10 searches / 24 h (by IP). Returns limited fields.     │
+ * │ Guest       │ 3 searches / 24 h (by IP). Returns limited fields.     │
  * │ Logged-in   │ Unlimited. Returns full fields. Search saved to DB.     │
  * └─────────────┴─────────────────────────────────────────────────────────┘
  *
@@ -31,7 +31,7 @@ const searchRouter = Router();
 
 const guestSearchLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 h
-  max: 10,
+  max: 3,
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => Boolean(req.user), // req.user is set by authenticate (non-throwing)
@@ -90,29 +90,27 @@ const toFullVehicle = (v) => ({
 const runVehicleQuery = async ({ q, brand, model, minPrice, maxPrice, limit, offset }) => {
   const db = getSupabase();
 
-  // Join brandtable + modeltable + pricetable using the legacy naming your
-  // schema uses (discovered in earlier RevReview work).
   let query = db
     .from("modeltable")
     .select(
-      `modelid,
-       model_name,
-       year,
-       brandtable ( brandid, brand_name ),
-       pricetable ( price )`,
+      `MODEL_ID,
+       ModelNames,
+       BodyShape,
+       brandtable ( Brand_ID, BrandNames ),
+       pricetable ( Price )`,
       { count: "exact" },
     )
     .range(offset, offset + limit - 1);
 
-  if (brand)    query = query.ilike("brandtable.brand_name", `%${brand}%`);
-  if (model)    query = query.ilike("model_name",             `%${model}%`);
+  if (brand)    query = query.ilike("brandtable.BrandNames", `%${brand}%`);
+  if (model)    query = query.ilike("ModelNames",             `%${model}%`);
   if (q)        query = query.or(
-    `model_name.ilike.%${q}%,brandtable.brand_name.ilike.%${q}%`,
+    `ModelNames.ilike.%${q}%,brandtable.BrandNames.ilike.%${q}%`,
   );
   if (minPrice !== undefined)
-    query = query.gte("pricetable.price", minPrice);
+    query = query.gte("pricetable.Price", minPrice);
   if (maxPrice !== undefined)
-    query = query.lte("pricetable.price", maxPrice);
+    query = query.lte("pricetable.Price", maxPrice);
 
   const { data, count, error } = await query;
   if (error) throw error;
@@ -120,12 +118,12 @@ const runVehicleQuery = async ({ q, brand, model, minPrice, maxPrice, limit, off
   // Flatten the nested join into a flat object for the mappers above
   return {
     rows: (data ?? []).map((row) => ({
-      modelid:    row.modelid,
-      model_name: row.model_name,
-      year:       row.year,
-      brandid:    row.brandtable?.brandid,
-      brand_name: row.brandtable?.brand_name,
-      price:      row.pricetable?.price ?? null,
+      modelid:    row.MODEL_ID,
+      model_name: row.ModelNames,
+      year:       null,
+      brandid:    row.brandtable?.Brand_ID,
+      brand_name: row.brandtable?.BrandNames,
+      price:      row.pricetable?.Price ?? null,
     })),
     total: count ?? 0,
   };
@@ -190,8 +188,8 @@ searchRouter.get(
     const db = getSupabase();
     const { data, error } = await db
       .from("brandtable")
-      .select("brandid, brand_name")
-      .order("brand_name");
+      .select("Brand_ID, BrandNames")
+      .order("BrandNames");
 
     if (error) throw error;
     res.json({ brands: data ?? [] });
