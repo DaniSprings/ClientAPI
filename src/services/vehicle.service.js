@@ -123,6 +123,8 @@ export const vehicleService = {
       acceleration: vehicle.acceleration,
       fuelConsumption: vehicle.fuelConsumption,
       fuelRange: vehicle.fuelRange,
+      fuel: vehicle.fuel,
+      tankSize: vehicle.tankSize,
       power: vehicle.power,
       torque: vehicle.torque,
       steering: vehicle.steering,
