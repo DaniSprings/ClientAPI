@@ -356,88 +356,52 @@ export const vehicleRepository = {
   async getVehicleDetails(brand, model) {
     const db = getReadSupabase();
 
-    const { data, error } = await withLegacyFallback(
-      // Primary: vehicle_view (flat, fast)
-      () =>
-        db
-          .from("vehicle_view")
-          .select("*")
-          .ilike("brand", brand)
-          .ilike("model", model)
-          .limit(1)
-          .maybeSingle(),
-      // Fallback: raw embedded join across normalized tables
-      async () => {
-        const brandId = await resolveBrandId(db, brand);
-        if (!brandId) return { data: null, error: null };
+    const brandId = await resolveBrandId(db, brand);
+    if (!brandId) return null;
 
-        return db
-          .from("modeltable")
-          .select(VEHICLE_SELECT)
-          .eq("Brand_ID", brandId)
-          .ilike("ModelNames", model)
-          .limit(1)
-          .maybeSingle();
-      },
-    );
+    const { data, error } = await db
+      .from("modeltable")
+      .select(VEHICLE_SELECT)
+      .eq("Brand_ID", brandId)
+      .ilike("ModelNames", model)
+      .limit(1)
+      .maybeSingle();
 
     throwOnError(error);
     if (!data) return null;
-
-    // Distinguish flat view row (has "brand" key) from embedded join row
-    return "brand" in data ? mapVehicleViewRow(data) : mapRow(data);
+    return mapRow(data);
   },
 
   async getVehicleByModelId(modelId) {
     const db = getReadSupabase();
 
-    const { data, error } = await withLegacyFallback(
-      () =>
-        db
-          .from("vehicle_view")
-          .select("*")
-          .eq("modelId", modelId)
-          .maybeSingle(),
-      () =>
-        db
-          .from("modeltable")
-          .select(VEHICLE_SELECT)
-          .eq("MODEL_ID", modelId)
-          .maybeSingle(),
-    );
+    const { data, error } = await db
+      .from("modeltable")
+      .select(VEHICLE_SELECT)
+      .eq("MODEL_ID", modelId)
+      .maybeSingle();
 
     throwOnError(error);
     if (!data) return null;
-    return "brand" in data ? mapVehicleViewRow(data) : mapRow(data);
+    return mapRow(data);
   },
 
   async searchVehicles({ brand, model, limit = 25 }) {
     const db = getReadSupabase();
 
-    const { data, error } = await withLegacyFallback(
-      () => {
-        let q = db.from("vehicle_view").select("*");
-        if (brand) q = q.ilike("brand", brand);
-        if (model) q = q.ilike("model", `%${model}%`);
-        return q.order("brand").order("model").limit(limit);
-      },
-      async () => {
-        let brandId = null;
-        if (brand) {
-          brandId = await resolveBrandId(db, brand);
-          if (!brandId) return { data: [], error: null };
-        }
+    let brandId = null;
+    if (brand) {
+      brandId = await resolveBrandId(db, brand);
+      if (!brandId) return [];
+    }
 
-        let q = db.from("modeltable").select(VEHICLE_SELECT);
-        if (brandId) q = q.eq("Brand_ID", brandId);
-        if (model)   q = q.ilike("ModelNames", `%${model}%`);
-        return q.order("ModelNames").limit(limit);
-      },
-    );
+    let q = db.from("modeltable").select(VEHICLE_SELECT);
+    if (brandId) q = q.eq("Brand_ID", brandId);
+    if (model)   q = q.ilike("ModelNames", `%${model}%`);
+
+    const { data, error } = await q.order("ModelNames").limit(limit);
 
     throwOnError(error);
-    return data.map((row) =>
-      "brand" in row ? mapVehicleViewRow(row) : mapRow(row),
-    );
+    return data.map(mapRow);
   },
 };
