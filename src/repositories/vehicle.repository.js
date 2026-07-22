@@ -72,8 +72,10 @@ const mapVehicleViewRow = (row) => ({
   drivenWheels:               row.drivenWheels                 ?? null,
   gearRatios:                 row.gearRatios                   ?? null,
   length:                     row.length                       ?? null,
-  width:                      row.widthInclMirrors             ?? null,
-  widthExclMirrorsInclMirrors: row.widthExclMirrors            ?? null,
+  width:                      row.width                        ?? null,
+  widthExclMirrors:           row.widthExclMirrors             ?? null,
+  widthInclMirrors:           row.widthInclMirrors             ?? null,
+  widthExclMirrorsInclMirrors: row.widthExclMirrorsInclMirrors ?? null,
   height:                     row.height                       ?? null,
   wheelbase:                  row.wheelbase                    ?? null,
   groundClearance:            row.groundClearance              ?? null,
@@ -178,6 +180,8 @@ const mapRow = (row) => {
     length:                     dim.Length                                    ?? null,
     width:                      dim.width_excl_mirrors != null
                                   ? String(dim.width_excl_mirrors)            : null,
+    widthExclMirrors:           dim.width_excl_mirrors                       ?? null,
+    widthInclMirrors:           dim.width_incl_mirrors                       ?? null,
     widthExclMirrorsInclMirrors: formatRange(dim.width_excl_mirrors, dim.width_incl_mirrors),
     height:                     dim.height                                    ?? null,
     wheelbase:                  dim.wheelbase != null
