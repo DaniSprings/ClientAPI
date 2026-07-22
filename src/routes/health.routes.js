@@ -46,8 +46,8 @@ router.get("/cars-test", async (req, res) => {
     let error = null;
 
     ({ data, error } = await db
-      .from("vehicle_view")
-      .select("brand, model, price, power")
+      .from("modeltable")
+      .select(VEHICLE_SELECT)
       .limit(5));
 
     if (error) {
