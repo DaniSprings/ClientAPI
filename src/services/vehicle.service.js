@@ -142,8 +142,8 @@ export const vehicleService = {
     return {
       brand: vehicle.brand,
       model: vehicle.model,
-      towbarFitted: vehicle.towbarFitted,
-      wadingDepth: vehicle.wadingDepth,
+      towbar: vehicle.towbar,
+      waterdepth: vehicle.waterdepth,
       loadVolume: vehicle.loadVolume,
       dryWeight: vehicle.dryWeight,
       kerbWeight: vehicle.kerbWeight,

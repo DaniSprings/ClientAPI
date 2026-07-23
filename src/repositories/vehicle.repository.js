@@ -35,7 +35,7 @@ const VEHICLE_SELECT = [
   "pricetable ( Price )",
   "performancetable ( EngineType, Cylinders, Fuel, Power, Torque, Acceleration, TopSpeed, AverageConsumption, Range, TankSize, Steering, DrivenWheels, GearRatios )",
   "dimensiontable ( Length, width_excl_mirrors, width_incl_mirrors, height, wheelbase, ground_clearance )",
-  "towingtable ( towbar:towbarFitted, waterdepth:wadingDepth, loadcapacity:loadVolume, Weight_DIN:dryWeight, \"weight _EU\":kerbWeight, payload:payloadCapacity, GVM:gvm, towingunbraked:towingUnbraked, towingbraked:towingBraked )",
+  "towingtable (towbar, waterdepth, loadcapacity, Weight_DIN, weight _EU, payload, GVM, towingunbraked, towingbraked )",
   "safetytable ( driverairbag:driverAirbag, \"front_passenger_airbag\":frontPassengerAirbag, \"driver_knee_airbag\":driverKneeAirbag, \"passenger_knee_airbag\":passengerKneeAirbag, \"front_side_airbags\":frontSideAirbags, \"rear_side_airbags\":rearSideAirbags, \"curtain_airbags\":curtainAirbags, airbag_quantity:airbagQuantity, childlock:childProofSafetyLock, isofix_mountings:isofixMountings, collision_warning_brake:collisionWarning )",
   "extrastable ( airconditioning:airConditioning, \"4-zone / rear air-conditioning controls\":rearAirConditioningControls, \"power steering\":powerSteering, \"electric power steering\":electricPowerSteering, \"leather steering wheel rim\":leatherSteeringWheelRim, \"multi-function steering wheel controls\":multiFunctionSteeringWheelControls, \"lane departure warning\":laneDepartureWarning, \"attention assist / rest assist / break alert / fatigue detectio\":attentionAssist, \"head-up display\":headUpDisplay, \"controls screen input method\":controlsScreenInputMethod, navigation:navigation, \"cruise control\":cruiseControl, \"active/adaptive cruise control\":adaptiveCruiseControl, \"Bluetooth connectivity\":bluetooth, \"USB port\":usbPort, \"electric windows\":electricWindows, \"heated rear screen / rear demister\":heatedRearScreen, \"autodim exterior mirrors\":autoDimExteriorMirrors, \"suede-cloth upholstery\":suedeClothUpholstery, \"leather upholstery\":leatherUpholstery, \"lumbar support adjustment\":lumbarSupportAdjustment, \"electric seat adjustment - driver\":electricDriverSeat, \"memory for electric seat adjustment\":electricSeatMemory, \"ventilated seats - front\":frontVentilatedSeats )",
   "servicetable ( \"warranty time (years)\":warrantyYears, \"warranty distance\":warrantyDistance, \"service/maintenance plan\":serviceMaintenancePlan, \"service plan time (years)\":servicePlanYears, \"service plan distance\":servicePlanDistance, \"maintenance plan\":maintenancePlan, \"maintenance plan time (years)\":maintenancePlanYears, \"maintenance plan distance\":maintenancePlanDistance, \"service interval distance\":serviceIntervalDistance, \"service interval distance_1\":serviceIntervalDistance1 )",
@@ -88,7 +88,7 @@ const mapVehicleViewRow = (row) => ({
   loadVolume:                 row.loadVolume                   ?? null,
   dryWeight:                  row.dryWeight                    ?? null,
   payloadCapacity:            row.payloadCapacity              ?? null,
-  towbarFitted:               row.towbarFitted                 ?? null,
+  towbar:                     row.towbar                       ?? null,
   wadingDepth:                row.wadingDepth                  ?? null,
 
   // Safety
@@ -196,7 +196,7 @@ const mapRow = (row) => {
     loadVolume:                 tow.loadVolume                                ?? null,
     dryWeight:                  tow.dryWeight                                 ?? null,
     payloadCapacity:            tow.payloadCapacity                           ?? null,
-    towbarFitted:               tow.towbarFitted                              ?? null,
+    towbar:                     tow.towbar                                 ?? null,
     wadingDepth:                tow.wadingDepth                               ?? null,
 
     // Safety
