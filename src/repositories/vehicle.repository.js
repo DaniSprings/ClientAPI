@@ -3,253 +3,8 @@ import { HttpError } from "../utils/http-error.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const isMissingRelation = (error) =>
-  Boolean(
-    error?.message?.includes("schema cache") ||
-      error?.message?.includes("Could not find the table") ||
-      error?.message?.includes("Could not find a relationship"),
-  );
-
-const withLegacyFallback = async (primaryQuery, fallbackQuery) => {
-  const primaryResult = await primaryQuery();
-  if (!primaryResult.error || !isMissingRelation(primaryResult.error)) {
-    return primaryResult;
-  }
-  return fallbackQuery();
-};
-
 const throwOnError = (error) => {
   if (error) throw new HttpError(503, error.message);
-};
-
-// ─── PostgREST embedded-join select ──────────────────────────────────────────
-// NOTE: "Engine" here must match the actual column name in performancetable.
-// The Supabase schema uses "EngineType" — we alias it via mapRow below.
-// If your performancetable column is literally "EngineType", change "Engine"
-// to "EngineType" in this string and update mapRow accordingly.
-const VEHICLE_SELECT = [
-  "MODEL_ID",
-  "ModelNames",
-  "BodyShape",
-  "brandtable!inner ( Brand_ID, BrandNames )",
-  "pricetable ( Price )",
-  "performancetable ( EngineType, Cylinders, Fuel, Power, Torque, Acceleration, TopSpeed, AverageConsumption, Range, TankSize, Steering, DrivenWheels, GearRatios )",
-  "dimensiontable ( Length, width_excl_mirrors, width_incl_mirrors, height, wheelbase, ground_clearance )",
-  "towingtable ( towbar, water_depth, load_capacity, weight_din, weight_eu, payload, gvm, towing_unbraked, towing_braked )",
-  "safetytable ( driver_airbag, front_passenger_airbag, driver_knee_airbag, passenger_knee_airbag, front_side_airbags, rear_side_airbags, curtain_airbags, airbag_quantity, child_lock, isofix_mountings, collision_warning_brake )",
-  "extrastable ( adaptive_cruisecontrol, airconditioning, auto_dim_mirrors, bluetooth, cruisecontrol, electric_power_steering, electric_windows, heated_rear_screen, head_up_display, leather_steering_wheel_rim, leather_upholstery, lane_departure_warning, lumbar_support_adjustment, multi_function_steering_wheel_controls, navigation, rear_airconditioning_controls, suede_cloth_upholstery, usb_port, ventilated_seats_front )",
-  "servicetable ( warranty_time, warranty_distance, service_maintenance, service_plan, service_plan_distance, maintenance_plan, maintenance_plan_time, maintenance_plan_distance, service_interval_distance, service_interval_distance1 )",
-
-].join(", ");
-
-// ─── Row mappers ─────────────────────────────────────────────────────────────
-
-/**
- * Maps a row returned by vehicle_view (flat columns, camelCase) when that
- * compatibility view exists.
- *
- * priceStatus / priceExclEmissionsTax are intentionally NOT mapped:
- * pricetable only exposes ID, MODEL_ID, and Price in the normalized schema.
- */
-const mapVehicleViewRow = (row) => ({
-  brandId:                    row.brandId                    ?? null,
-  brand:                      row.brand                      ?? null,
-  modelId:                    row.modelId,
-  model:                      row.model,
-  bodyShape:                  row.bodyShape                  ?? null,
-  price:                      row.price                       ?? null,
-  engine:                     row.engine                      ?? null,
-  cylinders:                  row.cylinders                   ?? null,
-  fuel:                       row.fuel                        ?? null,
-  power:                      row.power                       ?? null,
-  torque:                     row.torque                      ?? null,
-  acceleration:               row.acceleration                ?? null,
-  topSpeed:                   row.topSpeed                    ?? null,
-  fuelConsumption:            row.fuelConsumption              ?? null,
-  fuelRange:                  row.fuelRange                   ?? null,
-  tankSize:                   row.tankSize                     ?? null,
-  steering:                   row.steering                     ?? null,
-  drivenWheels:               row.drivenWheels                 ?? null,
-  gearRatios:                 row.gearRatios                   ?? null,
-  length:                     row.length                       ?? null,
-  width:                      row.width                        ?? null,
-  widthExclMirrors:           row.widthExclMirrors             ?? null,
-  widthInclMirrors:           row.widthInclMirrors             ?? null,
-  widthExclMirrorsInclMirrors: row.widthExclMirrorsInclMirrors ?? null,
-  height:                     row.height                       ?? null,
-  wheelbase:                  row.wheelbase                    ?? null,
-  groundClearance:            row.groundClearance              ?? null,
-
-  // Towing & Mass
-  towingBraked:               row.towingBraked                ?? null,
-  towingUnbraked:             row.towingUnbraked              ?? null,
-  kerbWeight:                 row.kerbWeight                   ?? null,
-  gvm:                        row.gvm                          ?? null,
-  loadVolume:                 row.loadVolume                   ?? null,
-  dryWeight:                  row.dryWeight                    ?? null,
-  payloadCapacity:            row.payloadCapacity              ?? null,
-  towbar:                     row.towbar                       ?? null,
-  wadingDepth:                row.wadingDepth                  ?? null,
-
-  // Safety
-  airbagQuantity:             row.airbagQuantity               ?? null,
-  driverAirbag:               row.driverAirbag                 ?? null,
-  frontPassengerAirbag:       row.frontPassengerAirbag         ?? null,
-  driverKneeAirbag:           row.driverKneeAirbag             ?? null,
-  passengerKneeAirbag:        row.passengerKneeAirbag          ?? null,
-  frontSideAirbags:           row.frontSideAirbags             ?? null,
-  rearSideAirbags:            row.rearSideAirbags              ?? null,
-  curtainAirbags:             row.curtainAirbags               ?? null,
-  childProofSafetyLock:       row.childProofSafetyLock         ?? null,
-  isofixMountings:            row.isofixMountings               ?? null,
-  collisionWarning:           row.collisionWarning             ?? null,
-
-  // Extras
-  airConditioning:            row.airConditioning              ?? null,
-  rearAirConditioningControls: row.rearAirConditioningControls ?? null,
-  powerSteering:              row.powerSteering                ?? null,
-  electricPowerSteering:      row.electricPowerSteering        ?? null,
-  leatherSteeringWheelRim:    row.leatherSteeringWheelRim      ?? null,
-  multiFunctionSteeringWheelControls: row.multiFunctionSteeringWheelControls ?? null,
-  navigation:                 row.navigation                    ?? null,
-  cruiseControl:              row.cruiseControl                ?? null,
-  adaptiveCruiseControl:      row.adaptiveCruiseControl        ?? null,
-  bluetooth:                  row.bluetooth                     ?? null,
-  usbPort:                    row.usbPort                       ?? null,
-  electricWindows:            row.electricWindows               ?? null,
-  leatherUpholstery:          row.leatherUpholstery            ?? null,
-  suedeClothUpholstery:       row.suedeClothUpholstery          ?? null,
-  lumbarSupportAdjustment:    row.lumbarSupportAdjustment       ?? null,
-  electricDriverSeat:         row.electricDriverSeat           ?? null,
-  electricSeatMemory:         row.electricSeatMemory            ?? null,
-  frontVentilatedSeats:       row.frontVentilatedSeats          ?? null,
-  headUpDisplay:              row.headUpDisplay                ?? null,
-  controlsScreenInputMethod:  row.controlsScreenInputMethod     ?? null,
-  attentionAssist:            row.attentionAssist               ?? null,
-  laneDepartureWarning:       row.laneDepartureWarning         ?? null,
-  heatedRearScreen:           row.heatedRearScreen             ?? null,
-  autoDimExteriorMirrors:     row.autoDimExteriorMirrors        ?? null,
-
-  // Service & Warranty
-  warrantyYears:              row.warrantyYears                ?? null,
-  warrantyDistance:           row.warrantyDistance             ?? null,
-  serviceMaintenancePlan:     row.serviceMaintenancePlan        ?? null,
-  servicePlanDistance:        row.servicePlanDistance          ?? null,
-  servicePlanYears:           row.servicePlanYears             ?? null,
-  maintenancePlan:            row.maintenancePlan               ?? null,
-  maintenancePlanDistance:    row.maintenancePlanDistance      ?? null,
-  maintenancePlanYears:       row.maintenancePlanYears         ?? null,
-  serviceIntervalDistance:    row.serviceIntervalDistance      ?? null,
-  serviceIntervalDistance1:   row.serviceIntervalDistance1      ?? null,
-});
-
-/** Maps a raw modeltable row returned by the embedded-join fallback. */
-const mapRow = (row) => {
-  const price = row.pricetable?.[0] ?? {};
-  const ep = row.performancetable?.[0] ?? {};
-  const dim = row.dimensiontable?.[0] ?? {};
-  const tow = row.towingtable?.[0] ?? {};
-  const safety = row.safetytable?.[0] ?? {};
-  const extras = row.extrastable?.[0] ?? {};
-  const service = row.servicetable?.[0] ?? {};
-  const brand = row.brandtable ?? {};
-
-  return {
-    brandId:                    brand.Brand_ID                                ?? null,
-    brand:                      brand.BrandNames                              ?? null,
-    modelId:                    row.MODEL_ID,
-    model:                      row.ModelNames,
-    bodyShape:                  row.BodyShape                                 ?? null,
-    price:                      price.Price                                   ?? null,
-    priceExclEmissionsTax:      price.price_excl_emissions_tax                ?? null,
-    priceStatus:                null,
-    // performancetable uses "EngineType" per the Supabase schema
-    engine:                     ep.EngineType                                 ?? null,
-    cylinders:                  ep.Cylinders                                  ?? null,
-    fuel:                       ep.Fuel                                       ?? null,
-    power:                      ep.Power                                      ?? null,
-    torque:                     ep.Torque                                     ?? null,
-    acceleration:               ep.Acceleration                               ?? null,
-    topSpeed:                   ep.TopSpeed                                   ?? null,
-    fuelConsumption:            ep.AverageConsumption                         ?? null,
-    fuelRange:                  ep.Range                                      ?? null,
-    tankSize:                   ep.TankSize                                   ?? null,
-    steering:                   ep.Steering                                   ?? null,
-    drivenWheels:               ep.DrivenWheels                               ?? null,
-    gearRatios:                 ep.GearRatios                                 ?? null,
-    length:                     dim.Length                                    ?? null,
-    width:                      dim.width_excl_mirrors != null
-                                  ? String(dim.width_excl_mirrors)            : null,
-    widthExclMirrors:           dim.width_excl_mirrors                       ?? null,
-    widthInclMirrors:           dim.width_incl_mirrors                       ?? null,
-    widthExclMirrorsInclMirrors: formatRange(dim.width_excl_mirrors, dim.width_incl_mirrors),
-    height:                     dim.height                                    ?? null,
-    wheelbase:                  dim.wheelbase != null
-                                  ? String(dim.wheelbase)                     : null,
-    groundClearance:            dim.ground_clearance                          ?? null,
-
-    // Towing & Mass
-    towingBraked:               tow.towingBraked                              ?? null,
-    towingUnbraked:             tow.towingUnbraked                            ?? null,
-    kerbWeight:                 tow.kerbWeight                                ?? null,
-    gvm:                        tow.gvm                                       ?? null,
-    loadVolume:                 tow.loadVolume                                ?? null,
-    dryWeight:                  tow.dryWeight                                 ?? null,
-    payloadCapacity:            tow.payloadCapacity                           ?? null,
-    towbar:                     tow.towbar                                 ?? null,
-    wadingDepth:                tow.wadingDepth                               ?? null,
-
-    // Safety
-    airbagQuantity:             safety.airbagQuantity                          ?? null,
-    driverAirbag:               safety.driverAirbag                            ?? null,
-    frontPassengerAirbag:       safety.frontPassengerAirbag                    ?? null,
-    driverKneeAirbag:           safety.driverKneeAirbag                        ?? null,
-    passengerKneeAirbag:        safety.passengerKneeAirbag                     ?? null,
-    frontSideAirbags:           safety.frontSideAirbags                       ?? null,
-    rearSideAirbags:            safety.rearSideAirbags                        ?? null,
-    curtainAirbags:             safety.curtainAirbags                         ?? null,
-    childProofSafetyLock:       safety.childProofSafetyLock                   ?? null,
-    isofixMountings:            safety.isofixMountings                        ?? null,
-    collisionWarning:           safety.collisionWarning                       ?? null,
-
-    // Extras
-    airConditioning:            extras.airConditioning                        ?? null,
-    rearAirConditioningControls: extras.rearAirConditioningControls           ?? null,
-    powerSteering:              extras.powerSteering                          ?? null,
-    electricPowerSteering:      extras.electricPowerSteering                  ?? null,
-    leatherSteeringWheelRim:    extras.leatherSteeringWheelRim                ?? null,
-    multiFunctionSteeringWheelControls: extras.multiFunctionSteeringWheelControls ?? null,
-    laneDepartureWarning:       extras.laneDepartureWarning                   ?? null,
-    attentionAssist:            extras.attentionAssist                        ?? null,
-    headUpDisplay:              extras.headUpDisplay                          ?? null,
-    controlsScreenInputMethod:  extras.controlsScreenInputMethod              ?? null,
-    navigation:                 extras.navigation                             ?? null,
-    cruiseControl:              extras.cruiseControl                          ?? null,
-    adaptiveCruiseControl:      extras.adaptiveCruiseControl                  ?? null,
-    bluetooth:                  extras.bluetooth                              ?? null,
-    usbPort:                    extras.usbPort                                ?? null,
-    electricWindows:            extras.electricWindows                        ?? null,
-    heatedRearScreen:           extras.heatedRearScreen                       ?? null,
-    autoDimExteriorMirrors:     extras.autoDimExteriorMirrors                 ?? null,
-    suedeClothUpholstery:       extras.suedeClothUpholstery                   ?? null,
-    leatherUpholstery:          extras.leatherUpholstery                      ?? null,
-    lumbarSupportAdjustment:    extras.lumbarSupportAdjustment                ?? null,
-    electricDriverSeat:         extras.electricDriverSeat                     ?? null,
-    electricSeatMemory:         extras.electricSeatMemory                     ?? null,
-    frontVentilatedSeats:       extras.frontVentilatedSeats                   ?? null,
-
-    // Service & Warranty
-    warrantyYears:              service.warrantyYears                         ?? null,
-    warrantyDistance:           service.warrantyDistance                      ?? null,
-    serviceMaintenancePlan:     service.serviceMaintenancePlan                ?? null,
-    servicePlanYears:           service.servicePlanYears                      ?? null,
-    servicePlanDistance:        service.servicePlanDistance                   ?? null,
-    maintenancePlan:            service.maintenancePlan                       ?? null,
-    maintenancePlanYears:       service.maintenancePlanYears                  ?? null,
-    maintenancePlanDistance:    service.maintenancePlanDistance               ?? null,
-    serviceIntervalDistance:    service.serviceIntervalDistance               ?? null,
-    serviceIntervalDistance1:    service.serviceIntervalDistance1               ?? null,
-  };
 };
 
 const formatRange = (min, max) => {
@@ -259,9 +14,118 @@ const formatRange = (min, max) => {
   return min === max ? String(min) : `${min} - ${max}`;
 };
 
-// ─── Brand helpers ────────────────────────────────────────────────────────────
+// ─── Row mapper ──────────────────────────────────────────────────────────────
+//
+// IMPORTANT: Every key read here (row.X) MUST be one of vehicle_view's actual
+// output column names — see Vehicle_view_column_names.txt. Do NOT reference
+// raw table column names (e.g. bluetooth_connectivity, weight_din) here; the
+// view already renames those. If you add a field to vehicle_view, add it here
+// too, then run checkVehicleViewSchema() (bottom of file) to confirm it's wired
+// up correctly before deploying.
+//
+// priceStatus / priceExclEmissionsTax are intentionally NOT mapped:
+// pricetable only exposes ID, MODEL_ID, and Price in the normalized schema.
+const mapVehicleViewRow = (row) => ({
+  brandId:                    row.brandId                     ?? null,
+  brand:                      row.brand                       ?? null,
+  modelId:                    row.modelId,
+  model:                      row.model,
+  bodyShape:                  row.bodyShape                   ?? null,
+  price:                      row.price                        ?? null,
+  engine:                     row.engine                       ?? null,
+  cylinders:                  row.cylinders                    ?? null,
+  fuel:                       row.fuel                         ?? null,
+  power:                      row.power                        ?? null,
+  torque:                     row.torque                       ?? null,
+  acceleration:               row.acceleration                 ?? null,
+  topSpeed:                   row.topSpeed                     ?? null,
+  fuelConsumption:            row.fuelConsumption              ?? null,
+  fuelRange:                  row.fuelRange                    ?? null,
+  tankSize:                   row.tankSize                     ?? null,
+  steering:                   row.steering                     ?? null,
+  drivenWheels:               row.drivenWheels                 ?? null,
+  gearRatios:                 row.gearRatios                   ?? null,
+  length:                     row.length                       ?? null,
+  // vehicle_view has no combined "width" column — derive it here so the
+  // existing API contract (a single `width` field) keeps working.
+  width:                      formatRange(row.widthExclMirrors, row.widthInclMirrors),
+  widthExclMirrors:           row.widthExclMirrors             ?? null,
+  widthInclMirrors:           row.widthInclMirrors             ?? null,
+  widthExclMirrorsInclMirrors: formatRange(row.widthExclMirrors, row.widthInclMirrors),
+  height:                     row.height                       ?? null,
+  wheelbase:                  row.wheelbase                    ?? null,
+  groundClearance:            row.groundClearance              ?? null,
 
-/** Resolves a brand name string → numeric Brand_ID. Returns null if not found. */
+  // Towing & Mass
+  towingBraked:               row.towingBraked                ?? null,
+  towingUnbraked:             row.towingUnbraked               ?? null,
+  kerbWeight:                 row.kerbWeight                   ?? null,
+  gvm:                        row.gvm                          ?? null,
+  loadVolume:                 row.loadVolume                   ?? null,
+  dryWeight:                  row.dryWeight                    ?? null,
+  payloadCapacity:            row.payloadCapacity              ?? null,
+  // NOTE: view column is "towbarFitted", not "towbar" — fixed below.
+  towbar:                     row.towbarFitted                 ?? null,
+  wadingDepth:                row.wadingDepth                  ?? null,
+
+  // Safety
+  airbagQuantity:             row.airbagQuantity                ?? null,
+  driverAirbag:               row.driverAirbag                  ?? null,
+  frontPassengerAirbag:       row.frontPassengerAirbag          ?? null,
+  driverKneeAirbag:           row.driverKneeAirbag              ?? null,
+  passengerKneeAirbag:        row.passengerKneeAirbag           ?? null,
+  frontSideAirbags:           row.frontSideAirbags              ?? null,
+  rearSideAirbags:            row.rearSideAirbags               ?? null,
+  curtainAirbags:             row.curtainAirbags                ?? null,
+  childProofSafetyLock:       row.childProofSafetyLock          ?? null,
+  isofixMountings:            row.isofixMountings                ?? null,
+  collisionWarning:           row.collisionWarning              ?? null,
+
+  // Extras
+  airConditioning:            row.airConditioning               ?? null,
+  rearAirConditioningControls: row.rearAirConditioningControls  ?? null,
+  powerSteering:              row.powerSteering                 ?? null,
+  electricPowerSteering:      row.electricPowerSteering         ?? null,
+  leatherSteeringWheelRim:    row.leatherSteeringWheelRim       ?? null,
+  multiFunctionSteeringWheelControls: row.multiFunctionSteeringWheelControls ?? null,
+  navigation:                 row.navigation                    ?? null,
+  cruiseControl:              row.cruiseControl                 ?? null,
+  adaptiveCruiseControl:      row.adaptiveCruiseControl         ?? null,
+  bluetooth:                  row.bluetooth                     ?? null,
+  usbPort:                    row.usbPort                       ?? null,
+  electricWindows:            row.electricWindows               ?? null,
+  leatherUpholstery:          row.leatherUpholstery             ?? null,
+  suedeClothUpholstery:       row.suedeClothUpholstery          ?? null,
+  lumbarSupportAdjustment:    row.lumbarSupportAdjustment       ?? null,
+  electricDriverSeat:         row.electricDriverSeat            ?? null,
+  electricSeatMemory:         row.electricSeatMemory            ?? null,
+  frontVentilatedSeats:       row.frontVentilatedSeats          ?? null,
+  headUpDisplay:              row.headUpDisplay                 ?? null,
+  controlsScreenInputMethod:  row.controlsScreenInputMethod     ?? null,
+  attentionAssist:            row.attentionAssist                ?? null,
+  laneDepartureWarning:       row.laneDepartureWarning          ?? null,
+  heatedRearScreen:           row.heatedRearScreen              ?? null,
+  autoDimExteriorMirrors:     row.autoDimExteriorMirrors        ?? null,
+
+  // Service & Warranty
+  warrantyYears:              row.warrantyYears                ?? null,
+  warrantyDistance:           row.warrantyDistance              ?? null,
+  serviceMaintenancePlan:     row.serviceMaintenancePlan        ?? null,
+  servicePlanDistance:        row.servicePlanDistance           ?? null,
+  servicePlanYears:           row.servicePlanYears              ?? null,
+  maintenancePlan:            row.maintenancePlan                ?? null,
+  maintenancePlanDistance:    row.maintenancePlanDistance       ?? null,
+  maintenancePlanYears:       row.maintenancePlanYears          ?? null,
+  serviceIntervalDistance:    row.serviceIntervalDistance       ?? null,
+  serviceIntervalDistance1:   row.serviceIntervalDistance1      ?? null,
+});
+
+// ─── Brand helpers ────────────────────────────────────────────────────────────
+// brandtable/modeltable are simple lookup tables that haven't been affected by
+// the renaming issues (Brand_ID / BrandNames / ModelNames are unchanged), so
+// these are left querying the raw tables directly. Everything that needs the
+// full vehicle spec set goes through vehicle_view below.
+
 const resolveBrandId = async (db, brand) => {
   const { data, error } = await db
     .from("brandtable")
@@ -357,6 +221,8 @@ export const vehicleRepository = {
     return [...new Set(data.map((row) => row.ModelNames))];
   },
 
+  // ── Full vehicle spec reads: ALWAYS through vehicle_view ──────────────────
+
   async getVehicleDetails(brand, model) {
     const db = getReadSupabase();
 
@@ -364,30 +230,30 @@ export const vehicleRepository = {
     if (!brandId) return null;
 
     const { data, error } = await db
-      .from("modeltable")
-      .select(VEHICLE_SELECT)
-      .eq("Brand_ID", brandId)
-      .ilike("ModelNames", model)
+      .from("vehicle_view")
+      .select("*")
+      .eq("brandId", brandId)
+      .ilike("model", model)
       .limit(1)
       .maybeSingle();
 
     throwOnError(error);
     if (!data) return null;
-    return mapRow(data);
+    return mapVehicleViewRow(data);
   },
 
   async getVehicleByModelId(modelId) {
     const db = getReadSupabase();
 
     const { data, error } = await db
-      .from("modeltable")
-      .select(VEHICLE_SELECT)
-      .eq("MODEL_ID", modelId)
+      .from("vehicle_view")
+      .select("*")
+      .eq("modelId", modelId)
       .maybeSingle();
 
     throwOnError(error);
     if (!data) return null;
-    return mapRow(data);
+    return mapVehicleViewRow(data);
   },
 
   async searchVehicles({ brand, model, limit = 25 }) {
@@ -399,13 +265,75 @@ export const vehicleRepository = {
       if (!brandId) return [];
     }
 
-    let q = db.from("modeltable").select(VEHICLE_SELECT);
-    if (brandId) q = q.eq("Brand_ID", brandId);
-    if (model)   q = q.ilike("ModelNames", `%${model}%`);
+    let q = db.from("vehicle_view").select("*");
+    if (brandId) q = q.eq("brandId", brandId);
+    if (model)   q = q.ilike("model", `%${model}%`);
 
-    const { data, error } = await q.order("ModelNames").limit(limit);
+    const { data, error } = await q.order("model").limit(limit);
 
     throwOnError(error);
-    return data.map(mapRow);
+    return data.map(mapVehicleViewRow);
   },
+};
+
+// ─── Schema safety net ────────────────────────────────────────────────────────
+//
+// This is the "step 3" safeguard: not a database command (Postgres has no way
+// to auto-reroute a renamed column), but a runtime check you can call from a
+// deploy/CI script. It fetches one real row from vehicle_view and confirms
+// every field mapVehicleViewRow expects is actually present as a key on that
+// row. If a future ALTER TABLE / view rebuild renames or drops a column this
+// throws immediately, with the exact missing field names, instead of surfacing
+// as a 503 in production.
+//
+// Suggested usage (e.g. in a predeploy npm script or CI step):
+//   import { checkVehicleViewSchema } from "./vehicle_repository.js";
+//   await checkVehicleViewSchema();
+export const checkVehicleViewSchema = async () => {
+  const db = getReadSupabase();
+  const { data, error } = await db.from("vehicle_view").select("*").limit(1).maybeSingle();
+
+  if (error) {
+    throw new Error(`vehicle_view schema check failed to query the view: ${error.message}`);
+  }
+  if (!data) {
+    throw new Error("vehicle_view schema check found no rows to validate against.");
+  }
+
+  // Fields mapVehicleViewRow actually reads off `row`. Kept in sync manually —
+  // update this list whenever you add a new field to mapVehicleViewRow above.
+  const expectedFields = [
+    "brandId", "brand", "modelId", "model", "bodyShape", "price", "engine",
+    "cylinders", "fuel", "power", "torque", "acceleration", "topSpeed",
+    "fuelConsumption", "fuelRange", "tankSize", "steering", "drivenWheels",
+    "gearRatios", "length", "widthExclMirrors", "widthInclMirrors", "height",
+    "wheelbase", "groundClearance", "towingBraked", "towingUnbraked",
+    "kerbWeight", "gvm", "loadVolume", "dryWeight", "payloadCapacity",
+    "towbarFitted", "wadingDepth", "airbagQuantity", "driverAirbag",
+    "frontPassengerAirbag", "driverKneeAirbag", "passengerKneeAirbag",
+    "frontSideAirbags", "rearSideAirbags", "curtainAirbags",
+    "childProofSafetyLock", "isofixMountings", "collisionWarning",
+    "airConditioning", "rearAirConditioningControls", "powerSteering",
+    "electricPowerSteering", "leatherSteeringWheelRim",
+    "multiFunctionSteeringWheelControls", "navigation", "cruiseControl",
+    "adaptiveCruiseControl", "bluetooth", "usbPort", "electricWindows",
+    "leatherUpholstery", "suedeClothUpholstery", "lumbarSupportAdjustment",
+    "electricDriverSeat", "electricSeatMemory", "frontVentilatedSeats",
+    "headUpDisplay", "controlsScreenInputMethod", "attentionAssist",
+    "laneDepartureWarning", "heatedRearScreen", "autoDimExteriorMirrors",
+    "warrantyYears", "warrantyDistance", "serviceMaintenancePlan",
+    "servicePlanDistance", "servicePlanYears", "maintenancePlan",
+    "maintenancePlanDistance", "maintenancePlanYears",
+    "serviceIntervalDistance", "serviceIntervalDistance1",
+  ];
+
+  const missing = expectedFields.filter((field) => !(field in data));
+  if (missing.length > 0) {
+    throw new Error(
+      `vehicle_view is missing expected column(s): ${missing.join(", ")}. ` +
+      `Update the view or mapVehicleViewRow to match.`,
+    );
+  }
+
+  return true;
 };
