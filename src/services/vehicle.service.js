@@ -142,16 +142,15 @@ export const vehicleService = {
     return {
       brand: vehicle.brand,
       model: vehicle.model,
-      towbar: vehicle.towbar,
-      waterdepth: vehicle.waterdepth,
+      towbarFitted: vehicle.towbarFitted,
+      wadingDepth: vehicle.wadingDepth,
       loadVolume: vehicle.loadVolume,
-      weight_eu: vehicle.weight_eu,
-      weight_din: vehicle.weight_din,
-      payload: vehicle.payload,
-      load_capacity: vehicle.load_capacity,
+      dryWeight: vehicle.dryWeight,
+      kerbWeight: vehicle.kerbWeight,
+      payloadCapacity: vehicle.payloadCapacity,
       gvm: vehicle.gvm,
-      towing_unbraked: vehicle.towing_unbraked,
-      towing_braked: vehicle.towing_braked,
+      towingUnbraked: vehicle.towingUnbraked,
+      towingBraked: vehicle.towingBraked,
     };
   },
   async getSafety(brand, model) {

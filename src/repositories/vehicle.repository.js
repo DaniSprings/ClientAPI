@@ -64,8 +64,7 @@ const mapVehicleViewRow = (row) => ({
   loadVolume:                 row.loadVolume                   ?? null,
   dryWeight:                  row.dryWeight                    ?? null,
   payloadCapacity:            row.payloadCapacity              ?? null,
-  // NOTE: view column is "towbarFitted", not "towbar" — fixed below.
-  towbar:                     row.towbarFitted                 ?? null,
+  towbarFitted:               row.towbarFitted                 ?? null,
   wadingDepth:                row.wadingDepth                  ?? null,
 
   // Safety
