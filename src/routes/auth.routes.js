@@ -3,6 +3,8 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { authenticate, authenticateOptional, authorizeUserParam } from "../middleware/authenticate.js";
 import { validate } from "../middleware/validate.js";
+import { verifyGoogleToken } from '../middleware/verifyGoogleToken.js';
+import { authService } from '../services/auth.service.js';
 import { isProduction } from "../config/env.js";
 import { authService } from "../services/auth.service.js";
 import { sendComparisonPdfEmail } from "../services/email.service.js";
