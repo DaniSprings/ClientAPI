@@ -6,7 +6,6 @@ import { validate } from "../middleware/validate.js";
 import { verifyGoogleToken } from '../middleware/verifyGoogleToken.js';
 import { authService } from '../services/auth.service.js';
 import { isProduction } from "../config/env.js";
-import { authService } from "../services/auth.service.js";
 import { sendComparisonPdfEmail } from "../services/email.service.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { HttpError } from "../utils/http-error.js";
