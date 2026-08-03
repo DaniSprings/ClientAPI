@@ -15,7 +15,7 @@ import { adminRouter } from "./routes/admin.routes.js";
 import carsRouter from "./routes/cars.routes.js";
 import healthRouter from "./routes/health.routes.js";
 import modelsRouter from "./routes/models.routes.js";
-import socialRouter from "./routes/social.routes.js";
+import socialRouter from "./routes/socialAuth.routes.js";
 
 export const createApp = () => {
   const app = express();
