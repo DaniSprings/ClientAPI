@@ -83,3 +83,5 @@ export const registerSocialAuthRoutes = (router) => {
     })
   );
 };
+
+export default socialAuthRouter;

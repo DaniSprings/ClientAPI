@@ -15,7 +15,7 @@ import { adminRouter } from "./routes/admin.routes.js";
 import carsRouter from "./routes/cars.routes.js";
 import healthRouter from "./routes/health.routes.js";
 import modelsRouter from "./routes/models.routes.js";
-import socialRouter from "./routes/socialAuth.routes.js";
+import socialAuthRouter from "./routes/socialAuth.routes.js";
 
 export const createApp = () => {
   const app = express();
@@ -106,7 +106,7 @@ export const createApp = () => {
   app.use("/api/login",   legacyAuthRouter);   // legacy compat
   app.use("/api/search",  searchRouter);        // guest + auth vehicle search
   app.use("/api/admin",   adminRouter);         // admin management dashboard
-  app.use("/auth",        socialRouter);        // OAuth social callbacks
+  app.use("/auth",        socialAuthRouter);        // OAuth social callbacks
 
   app.use(notFoundHandler);
   app.use(errorHandler);
