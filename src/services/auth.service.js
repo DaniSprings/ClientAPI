@@ -143,9 +143,32 @@ export const authService = {
       user_metadata: { provider, provider_id: providerId },
     });
 
-    if (createError) throw new HttpError(500, createError.message);
+    let profile;
 
-    const profile = await userRepository.createProfile({ userId: user.id, name, surname });
+    if (createError) {
+      const isDuplicateEmail = String(createError.message || "").toLowerCase().includes("already");
+      if (!isDuplicateEmail) throw new HttpError(500, createError.message);
+
+      // Email is already registered (password signup or a different social
+      // provider) — the OAuth provider already verified this email, so link
+      // the accounts by resetting the password to this provider's derived value.
+      const { data: linkData, error: linkError } =
+        await db.auth.admin.generateLink({ type: "magiclink", email });
+      if (linkError || !linkData?.user) {
+        throw new HttpError(500, "Could not link existing account for social login.");
+      }
+
+      const existingUserId = linkData.user.id;
+      const { error: updateError } = await db.auth.admin.updateUserById(existingUserId, {
+        password: tempPassword,
+        user_metadata: { ...(linkData.user.user_metadata || {}), provider, provider_id: providerId },
+      });
+      if (updateError) throw new HttpError(500, updateError.message);
+
+      profile = await userRepository.getProfile(existingUserId);
+    } else {
+      profile = await userRepository.createProfile({ userId: user.id, name, surname });
+    }
 
     const { data, error } = await anon.auth.signInWithPassword({ email, password: tempPassword });
     if (error) throw new HttpError(500, "Social login session could not be created.");
