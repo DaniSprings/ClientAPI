@@ -3,6 +3,7 @@ import { verifyGoogleToken } from '../middleware/verifyGoogleToken.js';
 import { authService } from '../services/auth.service.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import { HttpError } from '../utils/http-error.js';
+import { isProduction } from '../config/env.js';
 
 export const socialAuthRouter = Router();
 
@@ -59,9 +60,15 @@ const renderError = (message) => `<!doctype html>
   </body>
 </html>`;
 
+// Dev-only fake login stubs — hard-gated on !isProduction so they can never
+// run in production even if ALLOW_DEV_SOCIAL_LOGIN is misconfigured.
 socialAuthRouter.get(
   '/google',
   asyncHandler(async (req, res) => {
+    if (isProduction) {
+      res.type('html').send(renderError('Dev social login is disabled in production.'));
+      return;
+    }
     try {
       const payload = await authService.createDevSocialLogin('google');
       res.type('html').send(renderSuccess(payload));
@@ -75,6 +82,10 @@ socialAuthRouter.get(
 socialAuthRouter.get(
   '/facebook',
   asyncHandler(async (req, res) => {
+    if (isProduction) {
+      res.type('html').send(renderError('Dev social login is disabled in production.'));
+      return;
+    }
     try {
       const payload = await authService.createDevSocialLogin('facebook');
       res.type('html').send(renderSuccess(payload));
