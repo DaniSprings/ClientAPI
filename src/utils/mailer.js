@@ -90,7 +90,8 @@ const buildTableRows = (cars = []) =>
           <td style="padding:10px;border:1px solid #ddd;">${escapeHtml(formatValue(details.acceleration, " s"))}</td>
           <td style="padding:10px;border:1px solid #ddd;">${escapeHtml(formatValue(details.fuelConsumption, " L/100km"))}</td>
           <td style="padding:10px;border:1px solid #ddd;">${escapeHtml(formatValue(details.fuelRange, " km"))}</td>
-          <td style="padding:10px;border:1px solid #ddd;">${escapeHtml(formatValue(details.widthExclMirrorsInclMirrors, " mm"))}</td>
+          <td style="padding:10px;border:1px solid #ddd;">${escapeHtml(formatValue(details.widthExclMirrors, " mm"))}</td>
+          <td style="padding:10px;border:1px solid #ddd;">${escapeHtml(formatValue(details.widthInclMirrors, " mm"))}</td>
           <td style="padding:10px;border:1px solid #ddd;">${escapeHtml(formatValue(details.length, " mm"))}</td>
         </tr>
       `;
@@ -117,10 +118,11 @@ export const sendComparisonResultsEmail = async ({ toEmail, recipientName, cars 
             <th style="padding:10px;border:1px solid #ddd;">Power</th>
             <th style="padding:10px;border:1px solid #ddd;">Torque</th>
             <th style="padding:10px;border:1px solid #ddd;">Top Speed</th>
-            <th style="padding:10px;border:1px solid #ddd;">0-60 km/h</th>
+            <th style="padding:10px;border:1px solid #ddd;">0-100 km/h</th>
             <th style="padding:10px;border:1px solid #ddd;">Fuel Consumption</th>
             <th style="padding:10px;border:1px solid #ddd;">Fuel Range</th>
-            <th style="padding:10px;border:1px solid #ddd;">Width</th>
+            <th style="padding:10px;border:1px solid #ddd;">Width Excl. Mirrors</th>
+            <th style="padding:10px;border:1px solid #ddd;">Width Incl. Mirrors</th>
             <th style="padding:10px;border:1px solid #ddd;">Length</th>
           </tr>
         </thead>
