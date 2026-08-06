@@ -85,6 +85,7 @@ const CATEGORY_SPECS = [
     fields: [
       { label: 'Consumption', key: 'fuelConsumption', suffix: ' L/100km' },
       { label: 'Range', key: 'fuelRange', suffix: ' km' },
+      { label: 'Tank Size', key: 'tankSize', suffix: ' L' },
     ],
   },
   {
