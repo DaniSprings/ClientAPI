@@ -35,6 +35,10 @@ export const env = {
     "http://localhost:3000",
     "http://127.0.0.1:3000",
   ]),
+
+  facebookAppId: process.env.VITE_FACEBOOK_APP_ID || process.env.FACEBOOK_APP_ID || "",
+  facebookAppSecret: process.env.FACEBOOK_APP_SECRET || "",
+
   corsAllowVercelPreviews: toBoolean(process.env.CORS_ALLOW_VERCEL_PREVIEWS, true),
   corsAllowedVercelProjects: splitList(
     process.env.CORS_ALLOWED_VERCEL_PROJECTS,
@@ -71,3 +75,4 @@ export const isDatabaseConfigured = () =>
 
 export const isEmailConfigured = () =>
   Boolean(env.smtpHost && env.smtpPort && env.smtpUser && env.smtpPass && env.smtpFrom);
+

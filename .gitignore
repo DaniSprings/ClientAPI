@@ -5,6 +5,4 @@ npm-debug.log*
 .DS_Store
 
 # Environment secrets — never commit real credentials.
-.env
-.env.*
-!.env.example
+

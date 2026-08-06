@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { verifyGoogleToken } from '../middleware/verifyGoogleToken.js';
+import { verifyFacebookToken } from '../middleware/verifyFacebookToken.js';
 import { authService } from '../services/auth.service.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import { HttpError } from '../utils/http-error.js';
@@ -98,6 +99,7 @@ socialAuthRouter.get(
 socialAuthRouter.post(
   '/social-login',
   verifyGoogleToken,
+  verifyFacebookToken,
   asyncHandler(async (req, res) => {
     let provider, providerId, email, fullName;
 
@@ -107,6 +109,12 @@ socialAuthRouter.post(
       providerId = req.googleUser.providerId;
       email      = req.googleUser.email;
       fullName   = req.googleUser.fullName;
+    }  else if (req.facebookUser) {
+      // Path B: verified Facebook token
+      provider   = 'facebook';
+      providerId = req.facebookUser.providerId;
+      email      = req.facebookUser.email;
+      fullName   = req.facebookUser.fullName;
     } else {
       // Path B: existing social login payload (non-Google providers)
       ({ provider, providerId, email, fullName } = req.body);
