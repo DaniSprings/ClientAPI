@@ -130,7 +130,7 @@ const CATEGORY_SPECS = [
     ],
   },
   {
-    title: 'Additional Performance',
+    title: 'Additional Economy',
     fields: [
       { label: 'Steering', key: 'steering' },
       { label: 'Driven Wheels', key: 'drivenWheels' },

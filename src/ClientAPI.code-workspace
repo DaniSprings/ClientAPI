@@ -1,11 +1,12 @@
 {
 	"folders": [
 		{
-			"path": ".."
+			"name": "Client_Deployment",
+			"path": "../Client_Deployment"
 		},
 		{
-			"name": "Client_Deployment",
-			"path": "../../ClientUI/Client_Deployment"
+			"name": "ClientAPI",
+			"path": ".."
 		}
 	],
 	"settings": {}
