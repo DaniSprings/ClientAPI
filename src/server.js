@@ -3,9 +3,9 @@ import { env } from "./config/env.js";
 
 const app = createApp();
 
-const PORT = env.port || clientapi-production-afc7.up.railway.app;
+const PORT = env.port || 8080;
 
 app.listen(PORT, () => {
-  console.log(`RevReview Node API listening on http://localhost:${PORT}`);
+  console.log(`RevReview Node API listening on ${PORT}`);
 });
 
