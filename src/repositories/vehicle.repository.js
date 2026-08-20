@@ -26,9 +26,9 @@ const formatRange = (min, max) => {
 // priceStatus / priceExclEmissionsTax are intentionally NOT mapped:
 // pricetable only exposes ID, MODEL_ID, and Price in the normalized schema.
 const mapVehicleViewRow = (row) => ({
-  brandId:                    row.brandId                     ?? null,
+  brandId:                    row.brandID                     ?? null,
   brand:                      row.brand                       ?? null,
-  modelId:                    row.modelId,
+  modelId:                    row.modelID,
   model:                      row.model,
   bodyShape:                  row.bodyShape                   ?? null,
   price:                      row.price                        ?? null,
@@ -48,8 +48,8 @@ const mapVehicleViewRow = (row) => ({
   length:                     row.length                       ?? null,
   // vehicle_view has no combined "width" column — derive it here so the
   // existing API contract (a single `width` field) keeps working.
-  width:                      formatRange(row.widthExclMirrors, row.widthInclMirrors),
-  widthExclMirrors:           row.widthExclMirrors             ?? null,
+  width:                      formatRange(row.width, row.widthInclMirrors),
+  widthExclMirrors:           row.width                        ?? null,
   widthInclMirrors:           row.widthInclMirrors             ?? null,
   widthExclMirrorsInclMirrors: formatRange(row.widthExclMirrors, row.widthInclMirrors),
   height:                     row.height                       ?? null,
@@ -57,8 +57,8 @@ const mapVehicleViewRow = (row) => ({
   groundClearance:            row.groundClearance              ?? null,
 
   // Towing & Mass
-  towingBraked:               row.towingBraked                ?? null,
-  towingUnbraked:             row.towingUnbraked               ?? null,
+  towingBraked:               row.towing_braked                ?? null,
+  towingUnbraked:             row.towing_unbraked             ?? null,
   kerbWeight:                 row.kerbWeight                   ?? null,
   gvm:                        row.gvm                          ?? null,
   loadVolume:                 row.loadVolume                   ?? null,
@@ -247,7 +247,7 @@ export const vehicleRepository = {
     const { data, error } = await db
       .from("vehicle_view")
       .select("*")
-      .eq("modelId", modelId)
+      .eq("modelID", modelId)
       .maybeSingle();
 
     throwOnError(error);
@@ -302,10 +302,10 @@ export const checkVehicleViewSchema = async () => {
   // Fields mapVehicleViewRow actually reads off `row`. Kept in sync manually —
   // update this list whenever you add a new field to mapVehicleViewRow above.
   const expectedFields = [
-    "brandId", "brand", "modelId", "model", "bodyShape", "price", "engine",
+    "brandID", "brand", "modelID", "model", "bodyShape", "price", "engine",
     "cylinders", "fuel", "power", "torque", "acceleration", "topSpeed",
     "fuelConsumption", "fuelRange", "tankSize", "steering", "drivenWheels",
-    "gearRatios", "length", "widthExclMirrors", "widthInclMirrors", "height",
+    "gearRatios", "length", "width", "widthInclMirrors", "height",
     "wheelbase", "groundClearance", "towingBraked", "towingUnbraked",
     "kerbWeight", "gvm", "loadVolume", "dryWeight", "payloadCapacity",
     "towbarFitted", "wadingDepth", "airbagQuantity", "driverAirbag",
