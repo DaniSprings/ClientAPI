@@ -231,7 +231,7 @@ export const vehicleRepository = {
     const { data, error } = await db
       .from("vehicle_view")
       .select("*")
-      .eq("brandId", brandId)
+      .eq("brandID", brandId)
       .ilike("model", model)
       .limit(1)
       .maybeSingle();
@@ -265,7 +265,7 @@ export const vehicleRepository = {
     }
 
     let q = db.from("vehicle_view").select("*");
-    if (brandId) q = q.eq("brandId", brandId);
+    if (brandId) q = q.eq("brandID", brandId);
     if (model)   q = q.ilike("model", `%${model}%`);
 
     const { data, error } = await q.order("model").limit(limit);
