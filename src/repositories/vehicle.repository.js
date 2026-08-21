@@ -48,10 +48,9 @@ const mapVehicleViewRow = (row) => ({
   length:                     row.length                       ?? null,
   // vehicle_view has no combined "width" column — derive it here so the
   // existing API contract (a single `width` field) keeps working.
-  width:                      formatRange(row.width, row.widthInclMirrors),
-  widthExclMirrors:           row.width                        ?? null,
+  width:                      formatRange(row.widthExclMirrors, row.widthInclMirrors),
+  widthExclMirrors:           row.widthExclMirrors             ?? null,
   widthInclMirrors:           row.widthInclMirrors             ?? null,
-  widthExclMirrorsInclMirrors: formatRange(row.widthExclMirrors, row.widthInclMirrors),
   height:                     row.height                       ?? null,
   wheelbase:                  row.wheelbase                    ?? null,
   groundClearance:            row.groundClearance              ?? null,
@@ -305,7 +304,7 @@ export const checkVehicleViewSchema = async () => {
     "brandID", "brand", "modelID", "model", "bodyShape", "price", "engine",
     "cylinders", "fuel", "power", "torque", "acceleration", "topSpeed",
     "fuelConsumption", "fuelRange", "tankSize", "steering", "drivenWheels",
-    "gearRatios", "length", "width", "widthInclMirrors", "height",
+    "gearRatios", "length", "widthExclMirrors", "widthInclMirrors", "height",
     "wheelbase", "groundClearance", "towingBraked", "towingUnbraked",
     "kerbWeight", "gvm", "loadVolume", "dryWeight", "payloadCapacity",
     "towbarFitted", "wadingDepth", "airbagQuantity", "driverAirbag",
